@@ -43,6 +43,7 @@ jobs:
         with:
           # Use the platform from your matrix
           target: ${{ matrix.config.platform }}
+          platform: ${{ matrix.config.platform }}
           configure-args: "-DGeode_DIR=${{ env.GEODE_SDK }}"
           sdk: latest
           
