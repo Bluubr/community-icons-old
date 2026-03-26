@@ -42,8 +42,8 @@ jobs:
         uses: geode-sdk/build-geode-mod@main
         with:
           # Use the platform from your matrix
-          platform: ${{ matrix.config.platform }}
-          
+          target: ${{ matrix.config.platform }}
+          configure-args: "-DGeode_DIR=${{ env.GEODE_SDK }}"
           sdk: latest
           
           combine: true
