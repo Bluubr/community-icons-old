@@ -14,23 +14,23 @@ jobs:
         config:
         - name: Windows
           os: windows-latest
-          platform: win
+          target: Win64
 
         - name: macOS
           os: macos-latest
-          platform: mac
+          target: MacOS
 
         - name: iOS
           os: macos-latest
-          platform: ios
+          target: iOS
 
         - name: Android32
           os: ubuntu-latest
-          platform: android32
+          target: Android32
 
         - name: Android64
           os: ubuntu-latest
-          platform: android64
+          target: Android64
 
     name: ${{ matrix.config.name }}
     runs-on: ${{ matrix.config.os }}
@@ -41,10 +41,7 @@ jobs:
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
-          # Use the platform from your matrix
-          target: ${{ matrix.config.platform }}
-          platform: ${{ matrix.config.platform }}
-          configure-args: "-DGeode_DIR=${{ env.GEODE_SDK }}"
+          target: ${{ matrix.config.target }}
           sdk: latest
           
           combine: true
