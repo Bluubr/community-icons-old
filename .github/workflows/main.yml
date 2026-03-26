@@ -41,16 +41,19 @@ jobs:
       - name: Build the mod
         uses: geode-sdk/build-geode-mod@main
         with:
-          # Use platform (the new standard) instead of target
+          # Use the platform from your matrix
           platform: ${{ matrix.config.platform }}
           
-          # Fix: Manually tell it which SDK version to find
+          # Specify the SDK version (v5.3.0)
           sdk: v5.3.0
           
-          # Fix: Tell CMake where the SDK is to avoid "FindGeode.cmake" error
-          build-args: "-DCMAKE_PREFIX_PATH=$GEODE_SDK"
+          # Use configure-args for CMake variables
+          # Note: The action usually sets GEODE_SDK automatically, 
+          # but if you need a custom one, use configure-args:
+          configure-args: "-DCMAKE_PREFIX_PATH=$GEODE_SDK"
           
           combine: true
+
 
   package:
     name: Package builds
