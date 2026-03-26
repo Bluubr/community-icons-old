@@ -44,13 +44,7 @@ jobs:
           # Use the platform from your matrix
           platform: ${{ matrix.config.platform }}
           
-          # Specify the SDK version (v5.3.0)
-          sdk: v5.3.0
-          
-          # Use configure-args for CMake variables
-          # Note: The action usually sets GEODE_SDK automatically, 
-          # but if you need a custom one, use configure-args:
-          configure-args: "-DCMAKE_PREFIX_PATH=$GEODE_SDK"
+          sdk: latest
           
           combine: true
 
