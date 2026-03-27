@@ -43,7 +43,6 @@ jobs:
         with:
           target: ${{ matrix.config.target }}
           sdk: latest
-          
           combine: true
 
 
@@ -61,12 +60,9 @@ jobs:
       - name: Combine Builds
         uses: geode-sdk/build-geode-mod/combine@main
         id: build
-        with:
-          dest: community-icons.geode
-          source: artifacts/*.geode
 
       - name: Upload Final Mod
         uses: actions/upload-artifact@v4
         with:
           name: Final-Mod
-          path: community-icons.geode
+          path: ${{ steps.build.outputs.geode }}
