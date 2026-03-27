@@ -1,7 +1,7 @@
 #pragma once
 
-#include <Geode/ui/GeodeUI.hpp>
 #include <Geode/Geode.hpp>
+#include <Geode/ui/GeodeUI.hpp>
 #include "GamemodeViewPopup.hpp"
 
 using namespace geode::prelude;
@@ -11,7 +11,7 @@ struct GamemodeEntry {
     IconType    type;
 };
 
-class DefaultIconsPopup : public Popup<> {
+class DefaultIconsPopup : public geode::Popup<> {
 protected:
     static std::vector<GamemodeEntry> const& getGamemodes() {
         static const std::vector<GamemodeEntry> s_gamemodes = {
@@ -95,7 +95,7 @@ protected:
 
     void onViewGamemode(CCObject* sender) {
         auto const& gamemodes = getGamemodes(); // Use const& for safety
-        int idx = sender->getTag(); // CCObject has getTag() in Geode, no cast needed
+        int idx = static_cast<CCNode*>(sender)->getTag();
         
         if (idx >= 0 && idx < static_cast<int>(gamemodes.size())) {
             auto const& gm = gamemodes.at(static_cast<size_t>(idx));
