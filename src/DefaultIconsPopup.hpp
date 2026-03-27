@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Geode/ui/GeodeUI.hpp>
 #include <Geode/Geode.hpp>
 #include "GamemodeViewPopup.hpp"
 
