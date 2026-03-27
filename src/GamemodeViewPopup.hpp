@@ -5,14 +5,16 @@
 
 using namespace geode::prelude;
 
-class GamemodeViewPopup : public Popup<IconType, std::string> {
+// Change 1: Ensure string is passed correctly in the template
+class GamemodeViewPopup : public Popup<IconType, std::string const&> {
 protected:
     IconType m_iconType;
     std::string m_gamemodeName;
     std::string m_searchText;
     ScrollLayer* m_scrollLayer = nullptr;
 
-    bool setup(IconType iconType, std::string name) override {
+    // Change 2: Match the template signature exactly
+    bool setup(IconType iconType, std::string const& name) override {
         m_iconType = iconType;
         m_gamemodeName = name;
 
@@ -21,19 +23,21 @@ protected:
         auto winSize = m_mainLayer->getContentSize();
 
         // Search bar at the top
-        auto searchBar = TextInput::create(winSize.width - 40.f, "Search by number...");
-        searchBar->setPosition({winSize.width / 2, winSize.height - 32.f});
+        // Change 3: Width, placeholder, font
+        auto searchBar = TextInput::create(200.f, "Search...");
+        searchBar->setPosition({winSize.width / 2, winSize.height - 35.f});
         m_mainLayer->addChild(searchBar);
 
+        // Geode 5.4.1 uses setCallback with these specific params
         searchBar->setCallback([this](std::string const& text) {
             m_searchText = text;
             this->refreshIcons();
         });
 
         // Scrollable icon grid
-        float scrollH = winSize.height - 72.f;
-        m_scrollLayer = ScrollLayer::create({winSize.width - 20.f, scrollH});
-        m_scrollLayer->setPosition({10.f, 10.f});
+        float scrollH = winSize.height - 85.f;
+        m_scrollLayer = ScrollLayer::create({winSize.width - 40.f, scrollH});
+        m_scrollLayer->setPosition({20.f, 20.f});
         m_mainLayer->addChild(m_scrollLayer);
 
         this->refreshIcons();
@@ -42,55 +46,46 @@ protected:
     }
 
     void refreshIcons() {
-        m_scrollLayer->m_contentLayer->removeAllChildren();
+        // Ensure content layer exists
+        auto content = m_scrollLayer->m_contentLayer;
+        content->removeAllChildren();
 
         int totalCount = GameManager::get()->countForType(m_iconType);
-        float iconSize = 48.f;
-        float padding  = 8.f;
+        float iconSize = 40.f; // Slightly smaller to fit better
+        float padding  = 15.f;
         int   cols     = 5;
 
         std::vector<int> filtered;
-        filtered.reserve(static_cast<size_t>(totalCount));
-        for (int i = 1; i <= totalCount; i++) {
-            if (!m_searchText.empty() &&
+        for (int i = 0; i <= totalCount; i++) { // Icons usually start at 0 or 1
+            if (!m_searchText.empty() && 
                 std::to_string(i).find(m_searchText) == std::string::npos)
                 continue;
             filtered.push_back(i);
         }
 
-        int   rows       = (static_cast<int>(filtered.size()) + cols - 1) / cols;
-        float totalH     = std::max(
-            m_scrollLayer->getContentSize().height,
-            static_cast<float>(rows) * (iconSize + padding) + padding
-        );
+        int rows = (static_cast<int>(filtered.size()) + cols - 1) / cols;
+        float totalH = std::max(m_scrollLayer->getContentSize().height, rows * (iconSize + padding) + padding);
 
-        m_scrollLayer->m_contentLayer->setContentSize(
-            {m_scrollLayer->getContentSize().width, totalH}
-        );
+        content->setContentSize({m_scrollLayer->getContentSize().width, totalH});
 
-        float startX = padding + iconSize / 2.f;
-        float startY = totalH - padding - iconSize / 2.f;
-
-        for (int idx = 0; idx < static_cast<int>(filtered.size()); idx++) {
+        for (size_t idx = 0; idx < filtered.size(); idx++) {
             int frame = filtered[idx];
-            int col   = idx % cols;
-            int row   = idx / cols;
+            int col = idx % cols;
+            int row = idx / cols;
 
-            float x = startX + static_cast<float>(col) * (iconSize + padding);
-            float y = startY - static_cast<float>(row) * (iconSize + padding);
+            float x = (col * (iconSize + padding)) + (iconSize / 2) + (padding / 2);
+            float y = totalH - (row * (iconSize + padding)) - (iconSize / 2) - (padding / 2);
 
-            auto player = SimplePlayer::create(0);
+            auto player = SimplePlayer::create(frame);
             player->updatePlayerFrame(frame, m_iconType);
-            player->setScale(0.55f);
+            player->setScale(0.6f);
             player->setPosition({x, y});
-            m_scrollLayer->m_contentLayer->addChild(player);
+            content->addChild(player);
 
-            auto numLabel = CCLabelBMFont::create(
-                std::to_string(frame).c_str(), "chatFont.fnt"
-            );
-            numLabel->setScale(0.45f);
-            numLabel->setPosition({x, y - iconSize / 2.f + 4.f});
-            m_scrollLayer->m_contentLayer->addChild(numLabel);
+            auto label = CCLabelBMFont::create(std::to_string(frame).c_str(), "chatFont.fnt");
+            label->setScale(0.4f);
+            label->setPosition({x, y - 18.f});
+            content->addChild(label);
         }
 
         m_scrollLayer->moveToTop();
@@ -99,7 +94,7 @@ protected:
 public:
     static GamemodeViewPopup* create(IconType type, std::string const& name) {
         auto ret = new GamemodeViewPopup();
-        if (ret && ret->initAnchored(360.f, 290.f, type, name)) {
+        if (ret && ret->initAnchored(360.f, 280.f, type, name)) {
             ret->autorelease();
             return ret;
         }
