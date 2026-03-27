@@ -7,7 +7,7 @@
 using namespace geode::prelude;
 
 // Change 1: Ensure string is passed correctly in the template
-class GamemodeViewPopup : public Popup<IconType, std::string const&> {
+class GamemodeViewPopup : public geode::Popup<IconType, std::string const&> { // Add 'geode::'
 protected:
     IconType m_iconType;
     std::string m_gamemodeName;
