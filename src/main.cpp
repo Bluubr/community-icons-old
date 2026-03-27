@@ -11,18 +11,20 @@ class $modify(MyIconKit, CharacterColorPage) {
         auto menu = this->getChildByID("buttons-menu");
         if (!menu) return true;
 
+        // Try to load custom icon, fallback to search icon
         auto btnSpr = CCSprite::create("workshop-icon.png"_spr);
+        if (!btnSpr) {
+            btnSpr = CCSprite::createWithSpriteFrameName("GJ_searchBtn_001.png");
+        }
 
         if (btnSpr) {
             btnSpr->setScale(0.8f);
-        } else {
-            btnSpr = CCSprite::createWithSpriteFrameName("GJ_searchBtn_001.png");
         }
 
         auto searchBtn = CCMenuItemSpriteExtra::create(
             btnSpr,
             this,
-            menu_selector(CharacterColorPage::onOpenDefaultIcons) // Fixed selector
+            menu_selector(MyIconKit::onOpenDefaultIcons) // Selector fixed
         );
 
         menu->addChild(searchBtn);
@@ -33,7 +35,8 @@ class $modify(MyIconKit, CharacterColorPage) {
         return true;
     }
 
-    void onOpenDefaultIcons(CCObject*) {
+    // Function must exist in this class for the selector above to work
+    void onOpenDefaultIcons(CCObject* sender) {
         DefaultIconsPopup::create()->show();
     }
 };
