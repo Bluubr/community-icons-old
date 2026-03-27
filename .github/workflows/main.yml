@@ -44,8 +44,9 @@ jobs:
         uses: geode-sdk/build-geode-mod@main
         with:
           target: ${{ matrix.config.target }}
-          sdk: latest
           combine: true
+          sdk: v5.4.1 # Forcing a specific version prevents searching
+
 
 
   package:
