@@ -32,83 +32,61 @@ protected:
         this->setTitle("Default Icons");
 
         auto winSize = m_mainLayer->getContentSize();
-        float scrollW = winSize.width - 20.f;
-        float scrollH = winSize.height - 50.f;
-
-        auto scrollLayer = ScrollLayer::create({scrollW, scrollH});
+        auto scrollLayer = ScrollLayer::create({winSize.width - 20.f, winSize.height - 50.f});
         scrollLayer->setPosition({10.f, 10.f});
         m_mainLayer->addChild(scrollLayer);
 
-        auto& gamemodes = getGamemodes();
-        int   n         = static_cast<int>(gamemodes.size());
-        float entryH    = 88.f;
-        float padding   = 6.f;
-        float totalH    = static_cast<float>(n) * entryH + static_cast<float>(n - 1) * padding;
+        auto const& gamemodes = getGamemodes();
+        float entryH = 88.f;
+        float padding = 6.f;
+        float totalH = static_cast<float>(gamemodes.size()) * (entryH + padding);
+        scrollLayer->m_contentLayer->setContentSize({winSize.width - 20.f, totalH});
 
-        scrollLayer->m_contentLayer->setContentSize({scrollW, totalH});
+        for (size_t i = 0; i < gamemodes.size(); i++) {
+            auto const& gm = gamemodes[i];
+            float y = totalH - (i * (entryH + padding)) - entryH / 2.f;
 
-        for (int i = 0; i < n; i++) {
-            auto& gm = gamemodes[static_cast<size_t>(i)];
-            float y  = totalH - static_cast<float>(i) * (entryH + padding) - entryH / 2.f;
-
-            // Row background
             auto bg = CCScale9Sprite::create("GJ_square02.png");
-            bg->setContentSize({scrollW - 8.f, entryH - 6.f});
-            bg->setPosition({scrollW / 2.f, y});
+            bg->setContentSize({winSize.width - 28.f, entryH - 6.f});
+            bg->setPosition({(winSize.width - 20.f) / 2.f, y});
             bg->setOpacity(100);
             scrollLayer->m_contentLayer->addChild(bg);
 
-            // Default icon (frame 1) on the left
-            auto player = SimplePlayer::create(0);
+            auto player = SimplePlayer::create(1);
             player->updatePlayerFrame(1, gm.type);
             player->setScale(0.75f);
             player->setPosition({38.f, y});
             scrollLayer->m_contentLayer->addChild(player);
 
-            // Gamemode name
             auto nameLabel = CCLabelBMFont::create(gm.name.c_str(), "goldFont.fnt");
             nameLabel->setScale(0.65f);
             nameLabel->setAnchorPoint({0.f, 0.5f});
             nameLabel->setPosition({72.f, y});
             scrollLayer->m_contentLayer->addChild(nameLabel);
 
-            // "View" button on the right
             auto viewBtnSpr = ButtonSprite::create("View");
             viewBtnSpr->setScale(0.75f);
-
-            auto menu    = CCMenu::create();
-            auto viewBtn = CCMenuItemSpriteExtra::create(
-                viewBtnSpr,
-                this,
-                menu_selector(DefaultIconsPopup::onViewGamemode)
-            );
-            viewBtn->setTag(i);
+            auto menu = CCMenu::create();
+            auto viewBtn = CCMenuItemSpriteExtra::create(viewBtnSpr, this, menu_selector(DefaultIconsPopup::onViewGamemode));
+            viewBtn->setTag(static_cast<int>(i));
             menu->addChild(viewBtn);
-            menu->setPosition({scrollW - 45.f, y});
+            menu->setPosition({winSize.width - 65.f, y});
             scrollLayer->m_contentLayer->addChild(menu);
         }
-
         scrollLayer->moveToTop();
-
         return true;
     }
 
     void onViewGamemode(CCObject* sender) {
-        auto const& gamemodes = getGamemodes(); // Use const& for safety
         int idx = static_cast<CCNode*>(sender)->getTag();
-        
-        if (idx >= 0 && idx < static_cast<int>(gamemodes.size())) {
-            auto const& gm = gamemodes.at(static_cast<size_t>(idx));
-            // Ensure gm.name is treated as the correct type for the template
-            GamemodeViewPopup::create(gm.type, gm.name)->show();
-        }
+        auto const& gm = getGamemodes().at(idx);
+        GamemodeViewPopup::create(gm.type, gm.name)->show();
     }
-
 
 public:
     static DefaultIconsPopup* create() {
         auto ret = new DefaultIconsPopup();
-        if (ret && ret->initAnchored(380.f, 310.f)) {
+        if (ret && ret->init(380.f, 310.f)) {
             ret->autorelease();
             return ret;
         }
