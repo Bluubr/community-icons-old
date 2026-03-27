@@ -93,13 +93,16 @@ protected:
     }
 
     void onViewGamemode(CCObject* sender) {
-        auto& gamemodes = getGamemodes();
-        int idx = static_cast<CCNode*>(sender)->getTag();
+        auto const& gamemodes = getGamemodes(); // Use const& for safety
+        int idx = sender->getTag(); // CCObject has getTag() in Geode, no cast needed
+        
         if (idx >= 0 && idx < static_cast<int>(gamemodes.size())) {
-            auto& gm = gamemodes[static_cast<size_t>(idx)];
+            auto const& gm = gamemodes.at(static_cast<size_t>(idx));
+            // Ensure gm.name is treated as the correct type for the template
             GamemodeViewPopup::create(gm.type, gm.name)->show();
         }
     }
+
 
 public:
     static DefaultIconsPopup* create() {
