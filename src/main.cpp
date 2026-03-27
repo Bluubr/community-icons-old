@@ -22,7 +22,9 @@ class $modify(MyIconKit, CharacterColorPage) {
         auto searchBtn = CCMenuItemSpriteExtra::create(
             btnSpr,
             this,
-            menu_selector(MyIconKit::onOpenDefaultIcons)
+            menu_selector(CharacterColorPage::onOpenDefaultIcons) // Use base class name
+        );
+
         );
 
         menu->addChild(searchBtn);
