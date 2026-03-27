@@ -1,4 +1,6 @@
 name: Build Community Icons
+permissions:
+  contents: write
 
 on:
   workflow_dispatch:
