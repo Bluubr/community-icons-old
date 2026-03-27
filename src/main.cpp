@@ -1,6 +1,6 @@
 #include <Geode/Geode.hpp>
-#include <Geode/modify/CharacterColorPage.hpp>
 #include <Geode/ui/GeodeUI.hpp>
+#include <Geode/modify/CharacterColorPage.hpp>
 #include "DefaultIconsPopup.hpp"
 
 using namespace geode::prelude;
