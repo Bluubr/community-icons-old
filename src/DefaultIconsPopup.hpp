@@ -11,7 +11,7 @@ struct GamemodeEntry {
     IconType    type;
 };
 
-class DefaultIconsPopup : public geode::Popup<> {
+class DefaultIconsPopup : public geode::Popup {
 protected:
     static std::vector<GamemodeEntry> const& getGamemodes() {
         static const std::vector<GamemodeEntry> s_gamemodes = {
@@ -28,7 +28,9 @@ protected:
         return s_gamemodes;
     }
 
-    bool setup() override {
+    bool init() {
+        if (!Popup::init(380.f, 310.f)) return false;
+
         this->setTitle("Default Icons");
 
         auto winSize = m_mainLayer->getContentSize();
@@ -86,7 +88,7 @@ protected:
 public:
     static DefaultIconsPopup* create() {
         auto ret = new DefaultIconsPopup();
-        if (ret && ret->init(380.f, 310.f)) {
+        if (ret && ret->init()) {
             ret->autorelease();
             return ret;
         }
