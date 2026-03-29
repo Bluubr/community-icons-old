@@ -6,14 +6,16 @@
 
 using namespace geode::prelude;
 
-class GamemodeViewPopup : public geode::Popup<IconType, std::string const&> {
+class GamemodeViewPopup : public geode::Popup {
 protected:
     IconType m_iconType;
     std::string m_gamemodeName;
     std::string m_searchText;
     ScrollLayer* m_scrollLayer = nullptr;
 
-    bool setup(IconType iconType, std::string const& name) override {
+    bool init(IconType iconType, std::string const& name) {
+        if (!Popup::init(360.f, 280.f)) return false;
+
         m_iconType = iconType;
         m_gamemodeName = name;
 
@@ -86,7 +88,7 @@ protected:
 public:
     static GamemodeViewPopup* create(IconType type, std::string const& name) {
         auto ret = new GamemodeViewPopup();
-        if (ret && ret->init(360.f, 280.f, type, name)) {
+        if (ret && ret->init(type, name)) {
             ret->autorelease();
             return ret;
         }
