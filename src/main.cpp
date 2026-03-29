@@ -1,13 +1,13 @@
 #include <Geode/Geode.hpp>
 #include <Geode/ui/GeodeUI.hpp>
-#include <Geode/modify/GarageLayer.hpp>
+#include <Geode/modify/CharacterColorPage.hpp>
 #include "DefaultIconsPopup.hpp"
 
 using namespace geode::prelude;
 
-class $modify(MyIconKit, GarageLayer) {
+class $modify(MyIconKit, CharacterColorPage) {
     bool init() {
-        if (!GarageLayer::init()) return false;
+        if (!CharacterColorPage::init()) return false;
 
         auto menu = this->getChildByID("buttons-menu");
         if (!menu) return true;
