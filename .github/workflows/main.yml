@@ -70,4 +70,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Final-Mod
-          path: ${{ steps.build.outputs.geode }}
+          path: ${{ steps.build.outputs.build-output }}
