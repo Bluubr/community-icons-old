@@ -9,7 +9,7 @@ class $modify(MyIconKit, GJGarageLayer) {
     bool init() {
         if (!GJGarageLayer::init()) return false;
 
-        auto menu = this->getChildByID("buttons-menu");
+        auto menu = this->getChildByID("shards-menu");
         if (!menu) return true;
 
         auto btnSpr = CCSprite::create("workshop-icon.png"_spr);
