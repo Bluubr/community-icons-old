@@ -15,9 +15,9 @@ protected:
     CCNode* m_iconGrid = nullptr;
     CCLabelBMFont* m_pageLabel = nullptr;
 
-    static constexpr int COLS = 4;
-    static constexpr int ROWS = 6;
-    static constexpr int PAGE_SIZE = COLS * ROWS;
+    static constexpr int GRID_COLS = 4;
+    static constexpr int GRID_ROWS = 6;
+    static constexpr int PAGE_SIZE = GRID_COLS * GRID_ROWS;
 
     bool init(IconType iconType, std::string const& name) {
         if (!Popup::init(380.f, 400.f)) return false;
@@ -107,7 +107,7 @@ protected:
         m_pageLabel->setString(pageStr.c_str());
 
         // Grid layout: 4 columns, 6 rows — margins leave room for arrow buttons
-        float iconSpacingX = (winSize.width - 80.f) / COLS;
+        float iconSpacingX = (winSize.width - 80.f) / GRID_COLS;
         float iconSpacingY = 42.f;
         float startX = 40.f + iconSpacingX / 2.f;
         float startY = winSize.height - 70.f;
@@ -118,8 +118,8 @@ protected:
         for (int i = startIdx; i < endIdx; i++) {
             int frame = filtered[i];
             int localIdx = i - startIdx;
-            int col = localIdx % COLS;
-            int row = localIdx / COLS;
+            int col = localIdx % GRID_COLS;
+            int row = localIdx / GRID_COLS;
 
             float x = startX + col * iconSpacingX;
             float y = startY - row * iconSpacingY;
