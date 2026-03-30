@@ -12,9 +12,9 @@ class $modify(MyIconKit, GJGarageLayer) {
         auto menu = this->getChildByID("shards-menu");
         if (!menu) return true;
 
-        auto btnSpr = CCSprite::create("workshop-icon.png"_spr);
+        auto btnSpr = CCSprite::createWithSpriteFrameName("workshop-icon.png"_spr);
         if (!btnSpr) {
-            btnSpr = CCSprite::createWithSpriteFrameName("GJ_searchBtn_001.png");
+            btnSpr = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
         }
         btnSpr->setScale(0.8f);
 
