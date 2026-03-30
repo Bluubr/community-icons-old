@@ -17,7 +17,7 @@ protected:
 
     static constexpr int GRID_COLS = 4;
     static constexpr int GRID_ROWS = 6;
-    static constexpr int PAGE_SIZE = GRID_COLS * GRID_ROWS;
+    static constexpr int ICONS_PER_PAGE = GRID_COLS * GRID_ROWS;
 
     bool init(IconType iconType, std::string const& name) {
         if (!Popup::init(380.f, 400.f)) return false;
@@ -88,7 +88,7 @@ protected:
 
     int calcTotalPages() {
         int n = static_cast<int>(getFilteredIcons().size());
-        return std::max(1, (n + PAGE_SIZE - 1) / PAGE_SIZE);
+        return std::max(1, (n + ICONS_PER_PAGE - 1) / ICONS_PER_PAGE);
     }
 
     void refreshIcons() {
@@ -97,7 +97,7 @@ protected:
         auto winSize = m_mainLayer->getContentSize();
         auto filtered = getFilteredIcons();
 
-        int totalPages = std::max(1, static_cast<int>(filtered.size() + PAGE_SIZE - 1) / PAGE_SIZE);
+        int totalPages = std::max(1, static_cast<int>(filtered.size() + ICONS_PER_PAGE - 1) / ICONS_PER_PAGE);
         if (m_currentPage >= totalPages) m_currentPage = totalPages - 1;
         if (m_currentPage < 0) m_currentPage = 0;
 
@@ -112,8 +112,8 @@ protected:
         float startX = 40.f + iconSpacingX / 2.f;
         float startY = winSize.height - 70.f;
 
-        int startIdx = m_currentPage * PAGE_SIZE;
-        int endIdx = std::min(startIdx + PAGE_SIZE, static_cast<int>(filtered.size()));
+        int startIdx = m_currentPage * ICONS_PER_PAGE;
+        int endIdx = std::min(startIdx + ICONS_PER_PAGE, static_cast<int>(filtered.size()));
 
         for (int i = startIdx; i < endIdx; i++) {
             int frame = filtered[i];
