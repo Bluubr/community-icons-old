@@ -12,7 +12,8 @@ class $modify(MyIconKit, GJGarageLayer) {
         auto menu = this->getChildByID("shards-menu");
         if (!menu) return true;
 
-        auto btnSpr = CCSprite::createWithSpriteFrameName("workshop-icon.png"_spr);
+        auto btnSpr = CCSprite::create(
+            (Mod::get()->getResourcesDir() / "workshop-icon.png").string().c_str());
         if (!btnSpr) {
             btnSpr = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
         }
