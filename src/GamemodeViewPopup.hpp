@@ -105,6 +105,24 @@ protected:
         m_iconGrid->setPosition({0.f, 0.f});
         m_mainLayer->addChild(m_iconGrid);
 
+        // Discord button — bottom-left corner
+        auto discordMenu = CCMenu::create();
+        discordMenu->setPosition({0.f, 0.f});
+        m_mainLayer->addChild(discordMenu);
+
+        auto discordLbl = CCLabelBMFont::create(
+            "Join the Discord to add\nyour own custom icons", "chatFont.fnt");
+        discordLbl->setScale(0.38f);
+        discordLbl->setColor({88, 101, 242}); // Discord blurple
+        discordLbl->setAlignment(kCCTextAlignmentLeft);
+
+        auto discordBtn = CCMenuItemSpriteExtra::create(
+            discordLbl, this,
+            menu_selector(GamemodeViewPopup::onDiscordBtn));
+        discordBtn->setAnchorPoint({0.f, 0.5f});
+        discordBtn->setPosition({8.f, 22.f});
+        discordMenu->addChild(discordBtn);
+
         this->fetchPacks();
         return true;
     }
@@ -374,6 +392,13 @@ protected:
         if (m_currentPage < calcTotalPages(static_cast<int>(packs.size())) - 1) {
             ++m_currentPage;
             refreshIcons();
+        }
+    }
+
+    void onDiscordBtn(CCObject*) {
+        auto url = Mod::get()->getSettingValue<std::string>("discord-url");
+        if (!url.empty()) {
+            CCApplication::sharedApplication()->openURL(url.c_str());
         }
     }
 

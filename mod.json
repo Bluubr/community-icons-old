@@ -25,6 +25,12 @@
 			"description": "The Firebase project ID used to fetch icon packs from Firestore (e.g. my-project-12345). Find this in the Firebase Console under Project Settings.",
 			"type": "string",
 			"default": "community-icons"
+		},
+		"discord-url": {
+			"name": "Discord Invite URL",
+			"description": "The Discord invite link opened when clicking the 'Join the Discord' button in the icon pack browser.",
+			"type": "string",
+			"default": ""
 		}
 	}
 }
