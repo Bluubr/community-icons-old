@@ -18,5 +18,13 @@
 		"files": [
 			"workshop-icon.png"
 		]
+	},
+	"settings": {
+		"firebase-project-id": {
+			"name": "Firebase Project ID",
+			"description": "The Firebase project ID used to fetch icon packs from Firestore (e.g. my-project-12345). Find this in the Firebase Console under Project Settings.",
+			"type": "string",
+			"default": ""
+		}
 	}
 }
