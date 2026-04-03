@@ -407,6 +407,17 @@ protected:
         return 0;
     }
 
+    // Safely reads a Firestore timestamp field: { "timestampValue": "2026-04-03T04:00:00Z" }
+    // Returns the raw RFC 3339 string (e.g. "2026-04-03T04:00:00Z").
+    static std::string parseTimestampField(
+        matjson::Value const& fields, std::string const& key)
+    {
+        if (!fields.contains(key)) return "";
+        auto f = fields[key];
+        if (!f.contains("timestampValue")) return "";
+        return f["timestampValue"].asString().value_or("");
+    }
+
     // Extracts the document ID from a full Firestore resource name.
     // e.g. "projects/p/databases/(default)/documents/iconPacks/DOC_ID" → "DOC_ID"
     static std::string extractDocId(std::string const& docName) {
@@ -430,13 +441,14 @@ protected:
             auto fields = doc["fields"];
 
             IconPack pack;
-            pack.id        = extractDocId(doc["name"].asString().value_or(""));
-            pack.name      = parseStringField(fields, "name");
-            pack.author    = parseStringField(fields, "author");
-            pack.gamemode  = parseStringField(fields, "gamemode");
-            pack.imageUrl  = parseStringField(fields, "imageUrl");
-            pack.plistUrl  = parseStringField(fields, "plistUrl");
-            pack.downloads = parseIntField(fields, "Downloads");
+            pack.id         = extractDocId(doc["name"].asString().value_or(""));
+            pack.name       = parseStringField(fields, "name");
+            pack.author     = parseStringField(fields, "author");
+            pack.gamemode   = parseStringField(fields, "gamemode");
+            pack.imageUrl   = parseStringField(fields, "imageUrl");
+            pack.plistUrl   = parseStringField(fields, "plistUrl");
+            pack.uploadedAt = parseTimestampField(fields, "uploadedAt");
+            pack.downloads  = parseIntField(fields, "Downloads");
             packs.push_back(std::move(pack));
         }
 
