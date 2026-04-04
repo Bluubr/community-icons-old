@@ -4,6 +4,7 @@
 #include <Geode/ui/GeodeUI.hpp>
 #include <Geode/ui/TextInput.hpp>
 #include <Geode/utils/web.hpp>
+#include <Geode/utils/async.hpp>
 #include "IconPack.hpp"
 
 using namespace geode::prelude;
@@ -16,17 +17,18 @@ protected:
     int         m_currentPage = 0;
     bool        m_isLoading   = false;
 
-    CCNode*        m_iconGrid    = nullptr;
-    CCLabelBMFont* m_pageLabel   = nullptr;
-    CCLabelBMFont* m_emptyLabel  = nullptr;
+    CCNode*        m_iconGrid     = nullptr;
+    CCLabelBMFont* m_pageLabel    = nullptr;
+    CCLabelBMFont* m_emptyLabel   = nullptr;
     CCLabelBMFont* m_loadingLabel = nullptr;
 
     // All packs for this gamemode fetched from Firestore
     std::vector<IconPack> m_allPacks;
 
-    // Listeners kept alive for the duration of the async operations
-    EventListener<web::WebTask>              m_fetchListener;
-    std::vector<EventListener<web::WebTask>> m_imageListeners;
+    // Task handles kept alive for the duration of async operations;
+    // destroying a handle cancels the in-flight request.
+    std::optional<arc::TaskHandle<void>>   m_fetchHandle;
+    std::vector<arc::TaskHandle<void>>     m_imageHandles;
 
     // 4 × 4 grid gives each icon-pack cell enough room for a thumbnail + text
     static constexpr int GRID_COLS      = 4;
@@ -148,23 +150,24 @@ protected:
             "https://firestore.googleapis.com/v1/projects/" + projectId +
             "/databases/(default)/documents/iconPacks";
 
-        m_fetchListener.bind([this](web::WebTask::Event* e) {
-            if (auto* res = e->getValue()) {
-                if (res->ok()) {
-                    auto jsonResult = res->json();
+        Ref<GamemodeViewPopup> selfRef(this);
+        m_fetchHandle = geode::async::spawn(
+            web::WebRequest().get(url),
+            [selfRef](web::WebResponse response) mutable {
+                if (!selfRef) return;
+                if (response.ok()) {
+                    auto jsonResult = response.json();
                     if (jsonResult) {
                         auto packs = GamemodeViewPopup::parseFirestoreResponse(*jsonResult);
-                        this->onPacksFetched(std::move(packs));
+                        selfRef->onPacksFetched(std::move(packs));
                     } else {
-                        this->onFetchError("Failed to parse server response");
+                        selfRef->onFetchError("Failed to parse server response");
                     }
                 } else {
-                    this->onFetchError("Network error (" +
-                                       std::to_string(res->code()) + ")");
+                    selfRef->onFetchError(
+                        "Network error (" + std::to_string(response.code()) + ")");
                 }
-            }
-        });
-        m_fetchListener.setFilter(web::WebRequest().get(url));
+            });
     }
 
     void onPacksFetched(std::vector<IconPack> packs) {
@@ -234,7 +237,7 @@ protected:
     void refreshIcons() {
         m_iconGrid->removeAllChildren();
         // Cancel any in-flight thumbnail downloads from the previous page
-        m_imageListeners.clear();
+        m_imageHandles.clear();
 
         auto winSize = m_mainLayer->getContentSize();
         auto packs   = getFilteredPacks();
@@ -263,9 +266,6 @@ protected:
         int startIdx = m_currentPage * PACKS_PER_PAGE;
         int endIdx   = std::min(startIdx + PACKS_PER_PAGE, total);
 
-        // Reserve so no reallocation occurs while listeners are being set up
-        m_imageListeners.reserve(static_cast<size_t>(endIdx - startIdx));
-
         for (int i = startIdx; i < endIdx; ++i) {
             int localIdx = i - startIdx;
             int col      = localIdx % GRID_COLS;
@@ -291,8 +291,6 @@ protected:
         float maxThumbW = cellW - 12.f;
         float maxThumbH = cellH * 0.52f;
 
-        // CCSprite::create() with no arguments gives an empty sprite that
-        // we can populate later via setTexture / setTextureRect.
         auto thumb = CCSprite::create();
         thumb->setPosition({x, y + (cellH - 4.f) * 0.18f});
         thumb->setVisible(false);
@@ -327,16 +325,14 @@ protected:
         float capturedMaxW = maxThumbW;
         float capturedMaxH = maxThumbH;
 
-        m_imageListeners.emplace_back();
-        m_imageListeners.back().bind(
+        m_imageHandles.push_back(geode::async::spawn(
+            web::WebRequest().get(imageUrl),
             [thumbRef, cacheKey, capturedMaxW, capturedMaxH]
-            (web::WebTask::Event* e) mutable
+            (web::WebResponse response) mutable
         {
-            if (!e->getValue()) return;
-            auto* res = e->getValue();
-            if (!res->ok()) return;
+            if (!response.ok()) return;
 
-            auto const& bytes = res->data();
+            auto const& bytes = response.data();
             if (bytes.empty()) return;
 
             // Re-use a previously decoded texture if available
@@ -347,18 +343,10 @@ protected:
             if (!tex) {
                 auto* img = new CCImage();
                 if (img->initWithImageData(
-                        static_cast<unsigned char*>(
-                            const_cast<void*>(
-                                static_cast<void const*>(bytes.data()))),
+                        const_cast<unsigned char*>(bytes.data()),
                         static_cast<int>(bytes.size()))) {
-                    auto* t = new CCTexture2D();
-                    if (t->initWithImage(img)) {
-                        // addTexture retains t; our release below balances the new
-                        CCTextureCache::sharedTextureCache()->addTexture(
-                            t, cacheKey.c_str());
-                        tex = t;
-                    }
-                    t->release();
+                    tex = CCTextureCache::sharedTextureCache()->addUIImage(
+                        img, cacheKey.c_str());
                 }
                 img->release();
             }
@@ -372,8 +360,7 @@ protected:
             float scale = std::min(capturedMaxW / sz.width, capturedMaxH / sz.height);
             thumbRef->setScale(std::max(scale, 0.01f));
             thumbRef->setVisible(true);
-        });
-        m_imageListeners.back().setFilter(web::WebRequest().get(imageUrl));
+        }));
     }
 
     // -----------------------------------------------------------------------
@@ -413,7 +400,8 @@ protected:
         if (!fields.contains(key)) return "";
         auto f = fields[key];
         if (!f.contains("stringValue")) return "";
-        return f["stringValue"].asString().value_or("");
+        auto r = f["stringValue"].asString();
+        return r ? *r : "";
     }
 
     // Safely reads a Firestore integer field: { "integerValue": "5" }
@@ -426,7 +414,7 @@ protected:
         if (f.contains("integerValue")) {
             auto s = f["integerValue"].asString();
             if (s) {
-                try { return std::stoi(s.value()); } catch (...) {}
+                try { return std::stoi(*s); } catch (...) {}
             }
         }
         return 0;
@@ -440,7 +428,8 @@ protected:
         if (!fields.contains(key)) return "";
         auto f = fields[key];
         if (!f.contains("timestampValue")) return "";
-        return f["timestampValue"].asString().value_or("");
+        auto r = f["timestampValue"].asString();
+        return r ? *r : "";
     }
 
     // Extracts the document ID from a full Firestore resource name.
@@ -460,13 +449,14 @@ protected:
         auto docsResult = json["documents"].asArray();
         if (!docsResult) return packs;
 
-        for (auto const& doc : docsResult.value()) {
+        for (auto const& doc : *docsResult) {
             if (!doc.contains("name") || !doc.contains("fields")) continue;
 
             auto fields = doc["fields"];
 
             IconPack pack;
-            pack.id         = extractDocId(doc["name"].asString().value_or(""));
+            auto nameRes = doc["name"].asString();
+            pack.id         = extractDocId(nameRes ? *nameRes : "");
             pack.name       = parseStringField(fields, "name");
             pack.author     = parseStringField(fields, "author");
             pack.gamemode   = parseStringField(fields, "gamemode");
