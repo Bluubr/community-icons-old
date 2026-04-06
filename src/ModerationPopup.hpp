@@ -5,6 +5,7 @@
 #include <Geode/utils/web.hpp>
 #include <Geode/utils/async.hpp>
 #include "IconPack.hpp"
+#include "FirebaseAuth.hpp"
 
 using namespace geode::prelude;
 
@@ -313,29 +314,43 @@ protected:
         std::string packName = pack.name.empty() ? "Unnamed" : pack.name;
         Ref<ModerationPopup> selfRef(this);
 
-        m_actionHandles.push_back(geode::async::spawn(
-            web::WebRequest()
+        // Get auth token first so Firestore rules can require request.auth != null
+        FirebaseAuth::withToken([selfRef, postUrl, deleteUrl, body, packId, packName]
+                                (std::string const& idToken) mutable {
+            if (!selfRef) return;
+
+            auto req = web::WebRequest()
                 .bodyString(body)
-                .header("Content-Type", "application/json")
-                .post(postUrl),
-            [selfRef, deleteUrl, packId, packName](web::WebResponse response) mutable {
-                if (!selfRef) return;
-                if (!response.ok()) {
-                    FLAlertLayer::create(
-                        nullptr, "Error",
-                        "Failed to accept \"" + packName + "\" (" +
-                            std::to_string(response.code()) + ")",
-                        "OK", nullptr, 340.f)->show();
-                    return;
-                }
-                // Accepted — now delete the pending document
-                selfRef->m_actionHandles.push_back(geode::async::spawn(
-                    web::WebRequest().send("DELETE", deleteUrl),
-                    [selfRef, packId](web::WebResponse /*resp*/) mutable {
-                        if (!selfRef) return;
-                        selfRef->removePack(packId);
-                    }));
-            }));
+                .header("Content-Type", "application/json");
+            if (!idToken.empty())
+                req = req.header("Authorization", "Bearer " + idToken);
+
+            selfRef->m_actionHandles.push_back(geode::async::spawn(
+                req.post(postUrl),
+                [selfRef, deleteUrl, packId, packName, idToken](web::WebResponse response) mutable {
+                    if (!selfRef) return;
+                    if (!response.ok()) {
+                        if (response.code() == 401 || response.code() == 403)
+                            FirebaseAuth::invalidate();
+                        FLAlertLayer::create(
+                            nullptr, "Error",
+                            "Failed to accept \"" + packName + "\" (" +
+                                std::to_string(response.code()) + ")",
+                            "OK", nullptr, 340.f)->show();
+                        return;
+                    }
+                    // Accepted — now delete the pending document
+                    auto delReq = web::WebRequest();
+                    if (!idToken.empty())
+                        delReq = delReq.header("Authorization", "Bearer " + idToken);
+                    selfRef->m_actionHandles.push_back(geode::async::spawn(
+                        delReq.send("DELETE", deleteUrl),
+                        [selfRef, packId](web::WebResponse /*resp*/) mutable {
+                            if (!selfRef) return;
+                            selfRef->removePack(packId);
+                        }));
+                }));
+        });
     }
 
     void onDecline(CCObject* sender) {
@@ -354,20 +369,33 @@ protected:
         appendApiKey(deleteUrl);
 
         Ref<ModerationPopup> selfRef(this);
-        m_actionHandles.push_back(geode::async::spawn(
-            web::WebRequest().send("DELETE", deleteUrl),
-            [selfRef, packId, packName](web::WebResponse response) mutable {
-                if (!selfRef) return;
-                if (!response.ok()) {
-                    FLAlertLayer::create(
-                        nullptr, "Error",
-                        "Failed to decline \"" + packName + "\" (" +
-                            std::to_string(response.code()) + ")",
-                        "OK", nullptr, 340.f)->show();
-                    return;
-                }
-                selfRef->removePack(packId);
-            }));
+
+        // Get auth token first so Firestore rules can require request.auth != null
+        FirebaseAuth::withToken([selfRef, deleteUrl, packId, packName]
+                                (std::string const& idToken) mutable {
+            if (!selfRef) return;
+
+            auto req = web::WebRequest();
+            if (!idToken.empty())
+                req = req.header("Authorization", "Bearer " + idToken);
+
+            selfRef->m_actionHandles.push_back(geode::async::spawn(
+                req.send("DELETE", deleteUrl),
+                [selfRef, packId, packName](web::WebResponse response) mutable {
+                    if (!selfRef) return;
+                    if (!response.ok()) {
+                        if (response.code() == 401 || response.code() == 403)
+                            FirebaseAuth::invalidate();
+                        FLAlertLayer::create(
+                            nullptr, "Error",
+                            "Failed to decline \"" + packName + "\" (" +
+                                std::to_string(response.code()) + ")",
+                            "OK", nullptr, 340.f)->show();
+                        return;
+                    }
+                    selfRef->removePack(packId);
+                }));
+        });
     }
 
     // Remove a pack from the local list by ID, then refresh

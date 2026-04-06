@@ -7,6 +7,7 @@
 #include <chrono>
 #include <algorithm>
 #include <cctype>
+#include "FirebaseAuth.hpp"
 
 using namespace geode::prelude;
 
@@ -326,25 +327,38 @@ protected:
         std::string body = buildDoc(name, author, gamemode, imageUrl, plistUrl, submittedBy);
         Ref<SubmitPackPopup> selfRef(this);
 
-        m_submitHandle = geode::async::spawn(
-            web::WebRequest()
+        // Obtain a Firebase Anonymous Auth token first, then POST the submission.
+        // The token ensures Firestore rules can require `request.auth != null`
+        // so external scripts without a valid token get HTTP 401/403.
+        FirebaseAuth::withToken([selfRef, url, body](std::string const& idToken) mutable {
+            if (!selfRef) return;
+
+            auto req = web::WebRequest()
                 .bodyString(body)
-                .header("Content-Type", "application/json")
-                .post(url),
-            [selfRef](web::WebResponse response) mutable {
-                if (!selfRef) return;
-                selfRef->m_submitHandle.reset();
-                if (response.ok()) {
-                    recordSubmit();
-                    selfRef->setStatus(
-                        "Submitted! A moderator will review it soon.", false);
-                } else {
-                    selfRef->setStatus(
-                        ("Submit failed (" +
-                         std::to_string(response.code()) + ").").c_str(),
-                        true);
-                }
-            });
+                .header("Content-Type", "application/json");
+            if (!idToken.empty())
+                req = req.header("Authorization", "Bearer " + idToken);
+
+            selfRef->m_submitHandle = geode::async::spawn(
+                req.post(url),
+                [selfRef](web::WebResponse response) mutable {
+                    if (!selfRef) return;
+                    selfRef->m_submitHandle.reset();
+                    if (response.ok()) {
+                        recordSubmit();
+                        selfRef->setStatus(
+                            "Submitted! A moderator will review it soon.", false);
+                    } else {
+                        if (response.code() == 401 || response.code() == 403) {
+                            FirebaseAuth::invalidate();
+                        }
+                        selfRef->setStatus(
+                            ("Submit failed (" +
+                             std::to_string(response.code()) + ").").c_str(),
+                            true);
+                    }
+                });
+        });
     }
 
 public:
