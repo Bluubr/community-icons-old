@@ -49,9 +49,13 @@ public:
             return;
         }
 
-        // Queue this caller; if a refresh is already in-flight it will notify us.
+        // Queue this caller; check s_isFetching FIRST so a concurrent call
+        // during a refresh is added to the queue without starting a second fetch.
+        if (s_isFetching) {
+            s_pendingCallbacks.push_back(std::move(callback));
+            return;
+        }
         s_pendingCallbacks.push_back(std::move(callback));
-        if (s_isFetching) return;
 
         s_isFetching = true;
         std::string signInUrl =
@@ -77,8 +81,19 @@ public:
                     }
                 }
                 if (token.empty()) {
-                    log::warn("FirebaseAuth: anonymous sign-in failed ({})",
-                              response.code());
+                    std::string errMsg;
+                    if (response.ok()) {
+                        errMsg = "idToken missing from response";
+                    } else {
+                        auto json = response.json();
+                        if (json && (*json).contains("error")) {
+                            auto msgRes = (*json)["error"]["message"].asString();
+                            if (msgRes) errMsg = *msgRes;
+                        }
+                        if (errMsg.empty())
+                            errMsg = "HTTP " + std::to_string(response.code());
+                    }
+                    log::warn("FirebaseAuth: anonymous sign-in failed: {}", errMsg);
                 }
                 s_isFetching = false;
                 auto callbacks = std::move(s_pendingCallbacks);
@@ -89,9 +104,14 @@ public:
             });
     }
 
-    // Invalidates the cached token (e.g. after a 401 response).
+    // Invalidates the cached token (e.g. after a 401/403 response).
+    // Safe to call even during an in-flight refresh: the fetch callback
+    // will overwrite `s_idToken` with a fresh value when it completes.
     static void invalidate() {
         s_idToken.clear();
+        // Reset expiry so the next withToken() call triggers a refresh even if
+        // s_idToken happens to be repopulated by a concurrent fetch before then.
+        s_tokenExpiry = std::chrono::steady_clock::time_point{};
     }
 
 private:

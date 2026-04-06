@@ -327,7 +327,7 @@ protected:
 
             selfRef->m_actionHandles.push_back(geode::async::spawn(
                 req.post(postUrl),
-                [selfRef, deleteUrl, packId, packName, idToken](web::WebResponse response) mutable {
+                [selfRef, deleteUrl, packId, packName](web::WebResponse response) mutable {
                     if (!selfRef) return;
                     if (!response.ok()) {
                         if (response.code() == 401 || response.code() == 403)
@@ -339,16 +339,21 @@ protected:
                             "OK", nullptr, 340.f)->show();
                         return;
                     }
-                    // Accepted — now delete the pending document
-                    auto delReq = web::WebRequest();
-                    if (!idToken.empty())
-                        delReq = delReq.header("Authorization", "Bearer " + idToken);
-                    selfRef->m_actionHandles.push_back(geode::async::spawn(
-                        delReq.send("DELETE", deleteUrl),
-                        [selfRef, packId](web::WebResponse /*resp*/) mutable {
-                            if (!selfRef) return;
-                            selfRef->removePack(packId);
-                        }));
+                    // POST succeeded — re-acquire token for the DELETE in case it
+                    // has expired during the round-trip, then delete the pending doc.
+                    FirebaseAuth::withToken([selfRef, deleteUrl, packId]
+                                           (std::string const& delToken) mutable {
+                        if (!selfRef) return;
+                        auto delReq = web::WebRequest();
+                        if (!delToken.empty())
+                            delReq = delReq.header("Authorization", "Bearer " + delToken);
+                        selfRef->m_actionHandles.push_back(geode::async::spawn(
+                            delReq.send("DELETE", deleteUrl),
+                            [selfRef, packId](web::WebResponse /*resp*/) mutable {
+                                if (!selfRef) return;
+                                selfRef->removePack(packId);
+                            }));
+                    });
                 }));
         });
     }
