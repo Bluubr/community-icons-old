@@ -6,6 +6,7 @@
 #include <Geode/utils/web.hpp>
 #include <Geode/utils/async.hpp>
 #include "IconPack.hpp"
+#include "SubmitPackPopup.hpp"
 
 using namespace geode::prelude;
 
@@ -124,6 +125,20 @@ protected:
         discordBtn->setAnchorPoint({0.f, 0.5f});
         discordBtn->setPosition({8.f, 22.f});
         discordMenu->addChild(discordBtn);
+
+        // "Submit Pack" button — bottom-right corner
+        auto submitMenu = CCMenu::create();
+        submitMenu->setPosition({0.f, 0.f});
+        m_mainLayer->addChild(submitMenu);
+
+        auto submitSpr = ButtonSprite::create("Submit Pack");
+        submitSpr->setScale(0.55f);
+        auto submitBtn = CCMenuItemSpriteExtra::create(
+            submitSpr, this,
+            menu_selector(GamemodeViewPopup::onSubmitBtn));
+        submitBtn->setAnchorPoint({1.f, 0.5f});
+        submitBtn->setPosition({winSize.width - 8.f, 22.f});
+        submitMenu->addChild(submitBtn);
 
         this->fetchPacks();
         return true;
@@ -387,6 +402,10 @@ protected:
         if (!url.empty()) {
             CCApplication::sharedApplication()->openURL(url.c_str());
         }
+    }
+
+    void onSubmitBtn(CCObject*) {
+        SubmitPackPopup::create()->show();
     }
 
     // -----------------------------------------------------------------------
