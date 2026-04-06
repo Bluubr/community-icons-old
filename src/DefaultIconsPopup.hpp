@@ -2,7 +2,10 @@
 
 #include <Geode/Geode.hpp>
 #include <Geode/ui/GeodeUI.hpp>
+#include <Geode/utils/web.hpp>
+#include <Geode/utils/async.hpp>
 #include "GamemodeViewPopup.hpp"
+#include "ModerationPopup.hpp"
 
 using namespace geode::prelude;
 
@@ -13,6 +16,10 @@ struct GamemodeEntry {
 
 class DefaultIconsPopup : public geode::Popup {
 protected:
+    // Mod panel button — shown only if the current player is a moderator
+    CCMenuItemSpriteExtra*               m_modBtn         = nullptr;
+    std::optional<arc::TaskHandle<void>> m_modCheckHandle;
+
     static std::vector<GamemodeEntry> const& getGamemodes() {
         static const std::vector<GamemodeEntry> s_gamemodes = {
             {"Cube",    IconType::Cube},
@@ -74,13 +81,66 @@ protected:
             scrollLayer->m_contentLayer->addChild(menu);
         }
         scrollLayer->moveToTop();
+
+        // Moderator badge button — top-right corner; hidden until the mod check passes
+        auto modMenu = CCMenu::create();
+        modMenu->setPosition({0.f, 0.f});
+        m_mainLayer->addChild(modMenu, 10);
+
+        auto badgeSpr = CCSprite::create(
+            (Mod::get()->getResourcesDir() / "icon_mod_badge.png").string().c_str());
+        if (!badgeSpr) {
+            badgeSpr = CCSprite::createWithSpriteFrameName("GJ_infoIcon_001.png");
+        }
+        badgeSpr->setScale(0.55f);
+
+        m_modBtn = CCMenuItemSpriteExtra::create(
+            badgeSpr, this, menu_selector(DefaultIconsPopup::onOpenModPanel));
+        m_modBtn->setPosition({winSize.width - 18.f, winSize.height - 14.f});
+        m_modBtn->setVisible(false);
+        modMenu->addChild(m_modBtn);
+
+        this->checkModeratorStatus();
         return true;
+    }
+
+    // Queries Firestore to see if the current GD account ID has a moderator document.
+    // Shows the mod badge button if it does.
+    void checkModeratorStatus() {
+        auto projectId = Mod::get()->getSettingValue<std::string>("firebase-project-id");
+        if (projectId.empty()) return;
+
+        int accountID = GJAccountManager::sharedState()->m_accountID;
+        if (accountID <= 0) return; // not logged in to a GD account
+
+        std::string url =
+            "https://firestore.googleapis.com/v1/projects/" + projectId +
+            "/databases/(default)/documents/moderators/" +
+            std::to_string(accountID);
+
+        auto apiKey = Mod::get()->getSettingValue<std::string>("firebase-api-key");
+        if (!apiKey.empty()) url += "?key=" + apiKey;
+
+        Ref<DefaultIconsPopup> selfRef(this);
+        m_modCheckHandle = geode::async::spawn(
+            web::WebRequest().get(url),
+            [selfRef](web::WebResponse response) mutable {
+                if (!selfRef || !selfRef->m_modBtn) return;
+                // HTTP 200 means the moderator document exists
+                if (response.ok()) {
+                    selfRef->m_modBtn->setVisible(true);
+                }
+            });
     }
 
     void onViewGamemode(CCObject* sender) {
         int idx = static_cast<CCNode*>(sender)->getTag();
         auto const& gm = getGamemodes().at(idx);
         GamemodeViewPopup::create(gm.type, gm.name)->show();
+    }
+
+    void onOpenModPanel(CCObject*) {
+        ModerationPopup::create()->show();
     }
 
 public:
