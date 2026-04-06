@@ -16,7 +16,8 @@
 	},
 	"resources": {
 		"files": [
-			"workshop-icon.png"
+			"workshop-icon.png",
+			"icon_mod_badge.png"
 		]
 	},
 	"settings": {
@@ -25,6 +26,12 @@
 			"description": "The Firebase project ID used to fetch icon packs from Firestore (e.g. my-project-12345). Find this in the Firebase Console under Project Settings.",
 			"type": "string",
 			"default": "community-icons"
+		},
+		"firebase-api-key": {
+			"name": "Firebase Web API Key",
+			"description": "The Firebase Web API Key for write operations (accept/decline submissions). Find this in the Firebase Console under Project Settings > General > Web API Key.",
+			"type": "string",
+			"default": ""
 		},
 		"discord-url": {
 			"name": "Discord Invite URL",
