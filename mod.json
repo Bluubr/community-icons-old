@@ -31,7 +31,7 @@
 			"name": "Firebase Web API Key",
 			"description": "The Firebase Web API Key for write operations (accept/decline submissions). Find this in the Firebase Console under Project Settings > General > Web API Key.",
 			"type": "string",
-			"default": ""
+			"default": "AIzaSyCcHYVvkTbrkYuIOwP9YeXOZ2_bHmiQtl8"
 		},
 		"discord-url": {
 			"name": "Discord Invite URL",
