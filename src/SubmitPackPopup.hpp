@@ -66,11 +66,11 @@ protected:
                 std::chrono::system_clock::now().time_since_epoch()).count());
     }
 
-    static bool onCooldown(int& secsLeft) {
+    static bool onCooldown(int& secondsLeft) {
         int64_t last    = Mod::get()->getSavedValue<int64_t>(COOLDOWN_KEY, 0LL);
         int64_t elapsed = nowSecs() - last;
         if (elapsed < COOLDOWN_SECS) {
-            secsLeft = static_cast<int>(COOLDOWN_SECS - elapsed);
+            secondsLeft = static_cast<int>(COOLDOWN_SECS - elapsed);
             return true;
         }
         return false;
@@ -100,7 +100,7 @@ protected:
                 default:
                     if (c < 0x20) {
                         char b[8];
-                        snprintf(b, sizeof(b), "\\u%04x", c);
+                        snprintf(b, sizeof(b), "\\u%04x", static_cast<unsigned int>(c));
                         out += b;
                     } else {
                         out += static_cast<char>(c);
@@ -221,12 +221,12 @@ protected:
         }
 
         // Rate limiting: at most one submission per hour
-        int secsLeft = 0;
-        if (onCooldown(secsLeft)) {
-            int m = secsLeft / 60, s = secsLeft % 60;
+        int secondsLeft = 0;
+        if (onCooldown(secondsLeft)) {
+            int minutes = secondsLeft / 60, seconds = secondsLeft % 60;
             std::string msg =
-                "Please wait " + std::to_string(m) + "m " +
-                std::to_string(s) + "s before submitting again.";
+                "Please wait " + std::to_string(minutes) + "m " +
+                std::to_string(seconds) + "s before submitting again.";
             setStatus(msg.c_str(), true);
             return;
         }
@@ -237,10 +237,13 @@ protected:
             return;
         }
 
-        // Record the GD Account ID so moderators can identify/ban spammers
+        // Block submissions from unauthenticated accounts to prevent anonymous spam
         auto* acc = GJAccountManager::sharedState();
-        std::string submittedBy =
-            (acc && acc->m_accountID > 0) ? std::to_string(acc->m_accountID) : "0";
+        if (!acc || acc->m_accountID <= 0) {
+            setStatus("You must be logged into Geometry Dash to submit.", true);
+            return;
+        }
+        std::string submittedBy = std::to_string(acc->m_accountID);
 
         std::string url =
             "https://firestore.googleapis.com/v1/projects/" + projectId +
