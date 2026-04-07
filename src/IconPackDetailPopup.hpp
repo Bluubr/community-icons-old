@@ -12,64 +12,64 @@ using namespace geode::prelude;
 
 // Shown when the user taps an icon-pack cell in GamemodeViewPopup.
 //
-// Displays a full-size preview of the pack's thumbnail together with its name
-// and author.  The user can then press "Apply Icon" to download the pack's
-// assets and inject them into the running game session:
+// Displays a full-size preview of the pack's thumbnail together with its
+// name, author, and graphics type.  The user types the icon slot they want
+// to replace (e.g. "Cube_104" or "Swing_3") and presses "Apply Icon".
 //
-//   • If the pack carries a sprite-sheet plist (plistUrl is non-empty):
-//       – both the image and the plist are downloaded,
-//       – the plist is written to the mod's save directory,
-//       – CCSpriteFrameCache::addSpriteFramesWithFile() is called with the
-//         saved plist path and the decoded texture so that every sprite frame
-//         defined in the sheet replaces the matching in-memory frame.
+// On apply the mod:
+//   1. Locates Texture Loader's config directory – the sibling of our own
+//      config dir: <geode>/config/geode.texture-loader/.
+//   2. Ensures a "Community Icons" pack folder exists inside it with an
+//      icons/ sub-directory.  If Texture Loader is not installed the
+//      directory is still created so the user can enable it later.
+//   3. Downloads the pack's image and optional plist.
+//   4. Saves the files as:
+//        Community Icons/icons/<iconName><suffix>.png
+//        Community Icons/icons/<iconName><suffix>.plist
+//      where <suffix> is "UHD", "HD", or "" (Standard / empty).
 //
-//   • If the pack has only an image (imageUrl, no plistUrl):
-//       – the user selects an icon-slot number via a small text input,
-//       – the image is decoded and pushed into CCTextureCache under the
-//         sprite-name key for that slot (e.g. "player_001_001.png"),
-//       – a new CCSpriteFrame covering the full texture is registered in
-//         CCSpriteFrameCache under the same key, overriding the game's default.
-//
-// In both cases the player must reopen the Icon Kit (or restart) to see the
-// change reflected on the icon-selection buttons.
+// The user must restart Geometry Dash (or use Texture Loader's reload
+// option) for the replacement to take effect in-game.
 class IconPackDetailPopup : public geode::Popup {
 protected:
-    IconPack    m_pack;
-    IconType    m_iconType;
+    IconPack       m_pack;
 
     CCSprite*      m_previewSprite = nullptr;
     CCLabelBMFont* m_statusLabel   = nullptr;
-    TextInput*     m_slotInput     = nullptr;
-    CCNode*        m_slotRow       = nullptr;
+    TextInput*     m_iconNameInput = nullptr;
 
     std::vector<arc::TaskHandle<void>> m_handles;
 
     // ── Init ─────────────────────────────────────────────────────────────────
 
-    bool init(IconPack const& pack, IconType iconType) {
-        if (!Popup::init(420.f, 340.f)) return false;
+    bool init(IconPack const& pack) {
+        if (!Popup::init(440.f, 360.f)) return false;
 
-        m_pack     = pack;
-        m_iconType = iconType;
+        m_pack = pack;
 
         this->setTitle(pack.name.empty() ? "Icon Pack" : pack.name);
         m_bgSprite->setColor({35, 35, 50});
 
         auto winSize = m_mainLayer->getContentSize();
 
-        // ── Author label ─────────────────────────────────────────────────
-        if (!pack.author.empty()) {
-            auto authorLbl = CCLabelBMFont::create(
-                ("by " + pack.author).c_str(), "chatFont.fnt");
-            authorLbl->setScale(0.38f);
-            authorLbl->setColor({150, 150, 185});
-            authorLbl->setPosition({winSize.width / 2.f, winSize.height - 40.f});
-            m_mainLayer->addChild(authorLbl);
+        // ── Author + graphics-type sub-heading ───────────────────────────
+        std::string subLine;
+        if (!pack.author.empty())       subLine = "by " + pack.author;
+        if (!pack.graphicsType.empty()) {
+            if (!subLine.empty()) subLine += "  |  ";
+            subLine += pack.graphicsType;
+        }
+        if (!subLine.empty()) {
+            auto subLbl = CCLabelBMFont::create(subLine.c_str(), "chatFont.fnt");
+            subLbl->setScale(0.38f);
+            subLbl->setColor({150, 150, 185});
+            subLbl->setPosition({winSize.width / 2.f, winSize.height - 40.f});
+            m_mainLayer->addChild(subLbl);
         }
 
         // ── Preview area ─────────────────────────────────────────────────
-        float previewH = winSize.height * 0.42f;
-        float previewY = winSize.height - 56.f - previewH / 2.f;
+        float previewH = winSize.height * 0.38f;
+        float previewY = winSize.height - 58.f - previewH / 2.f;
 
         auto previewBg = CCScale9Sprite::create("GJ_square02.png");
         previewBg->setContentSize({winSize.width - 40.f, previewH});
@@ -83,34 +83,41 @@ protected:
         m_previewSprite->setVisible(false);
         m_mainLayer->addChild(m_previewSprite);
 
-        // ── Slot selector (shown only when the pack has no plist) ────────
-        m_slotRow = CCNode::create();
-        m_slotRow->setPosition({0.f, 0.f});
-        m_mainLayer->addChild(m_slotRow);
+        // ── Icon slot input ──────────────────────────────────────────────
+        // User types the base name of the icon to replace, e.g. "Cube_104"
+        // or "Swing_3".  The graphics-type suffix and extension are appended
+        // automatically when the file is saved.
+        float inputRowY = previewY - previewH / 2.f - 26.f;
 
-        float slotY = previewY - previewH / 2.f - 22.f;
+        auto nameLbl = CCLabelBMFont::create("Replace icon:", "chatFont.fnt");
+        nameLbl->setScale(0.42f);
+        nameLbl->setColor({200, 200, 225});
+        nameLbl->setAnchorPoint({1.f, 0.5f});
+        nameLbl->setPosition({winSize.width / 2.f - 4.f, inputRowY});
+        m_mainLayer->addChild(nameLbl);
 
-        auto slotLbl = CCLabelBMFont::create("Replace icon #:", "chatFont.fnt");
-        slotLbl->setScale(0.42f);
-        slotLbl->setColor({200, 200, 225});
-        slotLbl->setAnchorPoint({1.f, 0.5f});
-        slotLbl->setPosition({winSize.width / 2.f, slotY});
-        m_slotRow->addChild(slotLbl);
+        m_iconNameInput = TextInput::create(150.f, "e.g. Cube_104");
+        m_iconNameInput->setPosition({winSize.width / 2.f + 81.f, inputRowY});
+        m_mainLayer->addChild(m_iconNameInput);
 
-        m_slotInput = TextInput::create(72.f, "e.g. 1");
-        m_slotInput->setPosition({winSize.width / 2.f + 44.f, slotY});
-        m_slotInput->setString("1");
-        m_slotRow->addChild(m_slotInput);
-
-        // When a plist is available the sprite frames replace icons
-        // automatically — no slot selection is necessary.
-        m_slotRow->setVisible(pack.plistUrl.empty());
+        // Small hint showing which suffix will be appended to the file name
+        std::string suffixNote = "File suffix: ";
+        if (pack.graphicsType.empty() || pack.graphicsType == "Standard") {
+            suffixNote += "(none)";
+        } else {
+            suffixNote += pack.graphicsType;
+        }
+        auto hintLbl = CCLabelBMFont::create(suffixNote.c_str(), "chatFont.fnt");
+        hintLbl->setScale(0.28f);
+        hintLbl->setColor({110, 110, 145});
+        hintLbl->setPosition({winSize.width / 2.f, inputRowY - 14.f});
+        m_mainLayer->addChild(hintLbl);
 
         // ── Status label ─────────────────────────────────────────────────
         m_statusLabel = CCLabelBMFont::create("", "chatFont.fnt");
         m_statusLabel->setScale(0.33f);
         m_statusLabel->setColor({220, 80, 80});
-        m_statusLabel->setPosition({winSize.width / 2.f, 34.f});
+        m_statusLabel->setPosition({winSize.width / 2.f, 36.f});
         m_mainLayer->addChild(m_statusLabel);
 
         // ── Apply button ─────────────────────────────────────────────────
@@ -123,14 +130,12 @@ protected:
         auto applyBtn = CCMenuItemSpriteExtra::create(
             applySpr, this,
             menu_selector(IconPackDetailPopup::onApply));
-        applyBtn->setPosition({winSize.width / 2.f, 14.f});
+        applyBtn->setPosition({winSize.width / 2.f, 16.f});
         btnMenu->addChild(applyBtn);
 
         // ── Load preview thumbnail ────────────────────────────────────────
         if (!pack.imageUrl.empty()) {
-            float maxW = winSize.width - 60.f;
-            float maxH = previewH - 8.f;
-            loadPreview(pack.imageUrl, maxW, maxH);
+            loadPreview(pack.imageUrl, winSize.width - 60.f, previewH - 8.f);
         }
 
         return true;
@@ -150,15 +155,15 @@ protected:
                 auto const& bytes = response.data();
                 if (bytes.empty()) return;
 
-                auto* tex =
-                    CCTextureCache::sharedTextureCache()->textureForKey(cacheKey.c_str());
+                auto* tex = CCTextureCache::sharedTextureCache()
+                                ->textureForKey(cacheKey.c_str());
                 if (!tex) {
                     auto* img = new CCImage();
                     if (img->initWithImageData(
                             const_cast<unsigned char*>(bytes.data()),
                             static_cast<int>(bytes.size()))) {
-                        tex = CCTextureCache::sharedTextureCache()->addUIImage(
-                            img, cacheKey.c_str());
+                        tex = CCTextureCache::sharedTextureCache()
+                                  ->addUIImage(img, cacheKey.c_str());
                     }
                     img->release();
                 }
@@ -168,52 +173,12 @@ protected:
                 if (sz.width <= 0.f || sz.height <= 0.f) return;
 
                 selfRef->m_previewSprite->setTexture(tex);
-                selfRef->m_previewSprite->setTextureRect({0.f, 0.f, sz.width, sz.height});
+                selfRef->m_previewSprite->setTextureRect(
+                    {0.f, 0.f, sz.width, sz.height});
                 float scale = std::min(maxW / sz.width, maxH / sz.height);
                 selfRef->m_previewSprite->setScale(std::max(scale, 0.01f));
                 selfRef->m_previewSprite->setVisible(true);
             }));
-    }
-
-    // ── Sprite-name helpers ───────────────────────────────────────────────────
-
-    // Returns the cocos2d sprite-frame name used by Geometry Dash for the
-    // given icon type at the given 1-based slot index.
-    static std::string iconSpriteName(IconType type, int slot) {
-        char buf[64];
-        switch (type) {
-            case IconType::Cube:
-                snprintf(buf, sizeof(buf), "player_%03d_001.png", slot);
-                break;
-            case IconType::Ship:
-                snprintf(buf, sizeof(buf), "ship_%02d_001.png", slot);
-                break;
-            case IconType::Ball:
-                snprintf(buf, sizeof(buf), "player_ball_%02d_001.png", slot);
-                break;
-            case IconType::Ufo:
-                snprintf(buf, sizeof(buf), "bird_%02d_001.png", slot);
-                break;
-            case IconType::Wave:
-                snprintf(buf, sizeof(buf), "dart_%02d_001.png", slot);
-                break;
-            case IconType::Robot:
-                snprintf(buf, sizeof(buf), "robot_%02d_001.png", slot);
-                break;
-            case IconType::Spider:
-                snprintf(buf, sizeof(buf), "spider_%02d_001.png", slot);
-                break;
-            case IconType::Swing:
-                snprintf(buf, sizeof(buf), "swing_%02d_001.png", slot);
-                break;
-            case IconType::Jetpack:
-                snprintf(buf, sizeof(buf), "jetpack_%02d_001.png", slot);
-                break;
-            default:
-                snprintf(buf, sizeof(buf), "player_%03d_001.png", slot);
-                break;
-        }
-        return buf;
     }
 
     // ── Status helper ─────────────────────────────────────────────────────────
@@ -225,117 +190,145 @@ protected:
             error ? ccColor3B{220, 80, 80} : ccColor3B{80, 200, 100});
     }
 
+    // ── Texture Loader path helpers ───────────────────────────────────────────
+
+    // Name of the pack folder written inside Texture Loader's config directory.
+    static constexpr const char* TL_PACK_NAME = "Community Icons";
+
+    static std::string trimWhitespace(std::string s) {
+        auto first = s.find_first_not_of(" \t");
+        if (first == std::string::npos) return "";
+        auto last = s.find_last_not_of(" \t");
+        return s.substr(first, last - first + 1);
+    }
+
+    // Returns the path to the "Community Icons" pack folder inside Texture
+    // Loader's config directory, creating it (and the icons/ sub-directory)
+    // if it does not yet exist.
+    // Config layout:
+    //   <game>/geode/config/geode.texture-loader/Community Icons/icons/
+    static bool ensureCommunityIconsDir(
+        std::filesystem::path& outIconsDir, std::string& errOut)
+    {
+        // Our config dir is <geode>/config/<our-id>/
+        // TL's config dir is the sibling <geode>/config/geode.texture-loader/
+        auto tlConfigDir =
+            Mod::get()->getConfigDir().parent_path() / "geode.texture-loader";
+
+        auto iconsDir = tlConfigDir / TL_PACK_NAME / "icons";
+        std::error_code ec;
+        std::filesystem::create_directories(iconsDir, ec);
+        if (ec) {
+            errOut = "Could not create folder: " + ec.message();
+            return false;
+        }
+        outIconsDir = iconsDir;
+        return true;
+    }
+
+    // Returns the file-name suffix for the given graphicsType string.
+    // "UHD" -> "UHD", "HD" -> "HD", anything else (incl. "") -> "".
+    static std::string graphicsSuffix(std::string const& gt) {
+        if (gt == "UHD" || gt == "HD") return gt;
+        return "";
+    }
+
     // ── Apply button handler ──────────────────────────────────────────────────
 
     void onApply(CCObject*) {
-        if (m_pack.imageUrl.empty() && m_pack.plistUrl.empty()) {
-            setStatus("No downloadable assets for this pack.", true);
-            return;
-        }
-
-        // Plist-based path: download image + plist, let CCSpriteFrameCache
-        // apply all defined frames at once (no slot selection required).
-        if (!m_pack.plistUrl.empty()) {
-            applyWithPlist();
-            return;
-        }
-
-        // Image-only path: replace a single user-chosen icon slot.
-        int slot = 1;
-        try {
-            slot = std::stoi(m_slotInput ? m_slotInput->getString() : "1");
-        } catch (...) {}
-        if (slot < 1) slot = 1;
-
-        applyImageToSlot(slot);
-    }
-
-    // ── Plist-based apply ─────────────────────────────────────────────────────
-
-    // Downloads the pack image and plist in sequence, writes the plist to the
-    // mod's save directory, then calls addSpriteFramesWithFile() so every frame
-    // defined by the community pack overrides the matching in-memory frame.
-    void applyWithPlist() {
-        setStatus("Downloading...", false);
-
-        std::string imageUrl = m_pack.imageUrl;
-        std::string plistUrl = m_pack.plistUrl;
-        std::string packId   = m_pack.id;
-        Ref<IconPackDetailPopup> selfRef(this);
-
-        if (imageUrl.empty()) {
+        if (m_pack.imageUrl.empty()) {
             setStatus("No image URL for this pack.", true);
             return;
         }
 
-        // Step 1: download the sprite-sheet image.
+        std::string iconName = trimWhitespace(
+            m_iconNameInput ? m_iconNameInput->getString() : "");
+
+        if (iconName.empty()) {
+            setStatus("Please enter an icon name (e.g. Cube_104).", true);
+            return;
+        }
+
+        // Resolve the Texture Loader icons directory once, before spawning tasks.
+        std::filesystem::path iconsDir;
+        std::string dirErr;
+        if (!ensureCommunityIconsDir(iconsDir, dirErr)) {
+            setStatus(dirErr.c_str(), true);
+            return;
+        }
+
+        setStatus("Downloading...", false);
+
+        std::string suffix   = graphicsSuffix(m_pack.graphicsType);
+        std::string baseName = iconName + suffix;
+        std::string imageUrl = m_pack.imageUrl;
+        std::string plistUrl = m_pack.plistUrl;
+        Ref<IconPackDetailPopup> selfRef(this);
+
+        // ── Download image ───────────────────────────────────────────────
         m_handles.push_back(geode::async::spawn(
             web::WebRequest().get(imageUrl),
-            [selfRef, plistUrl, packId](web::WebResponse imageResp) mutable {
+            [selfRef, iconsDir, baseName, plistUrl]
+            (web::WebResponse imgResp) mutable {
                 if (!selfRef) return;
-                if (!imageResp.ok()) {
+                if (!imgResp.ok()) {
                     selfRef->setStatus("Image download failed.", true);
                     return;
                 }
-
-                auto const& imgBytes = imageResp.data();
+                auto const& imgBytes = imgResp.data();
                 if (imgBytes.empty()) {
                     selfRef->setStatus("Empty image response.", true);
                     return;
                 }
 
-                // Decode the image into a CCTexture2D and cache it.
-                std::string texKey = "ci_apply_" + packId;
-                auto* imgObj = new CCImage();
-                CCTexture2D* tex = nullptr;
-                if (imgObj->initWithImageData(
-                        const_cast<unsigned char*>(imgBytes.data()),
-                        static_cast<int>(imgBytes.size()))) {
-                    tex = CCTextureCache::sharedTextureCache()->addUIImage(
-                        imgObj, texKey.c_str());
+                // Save image → Community Icons/icons/<baseName>.png
+                auto imgPath = iconsDir / (baseName + ".png");
+                {
+                    std::ofstream ofs(imgPath, std::ios::binary | std::ios::trunc);
+                    if (!ofs) {
+                        selfRef->setStatus("Failed to write image file.", true);
+                        return;
+                    }
+                    ofs.write(
+                        reinterpret_cast<const char*>(imgBytes.data()),
+                        static_cast<std::streamsize>(imgBytes.size()));
                 }
-                imgObj->release();
 
-                if (!tex) {
-                    selfRef->setStatus("Failed to decode image.", true);
+                // If no plist, we're done.
+                if (plistUrl.empty()) {
+                    selfRef->setStatus(
+                        ("Saved " + baseName + ".png to Community Icons/icons/").c_str(),
+                        false);
                     return;
                 }
 
-                // Step 2: download the plist.
+                // ── Download plist (if present) ──────────────────────────
                 selfRef->m_handles.push_back(geode::async::spawn(
                     web::WebRequest().get(plistUrl),
-                    [selfRef, tex, packId](web::WebResponse plistResp) mutable {
+                    [selfRef, iconsDir, baseName]
+                    (web::WebResponse plistResp) mutable {
                         if (!selfRef) return;
                         if (!plistResp.ok()) {
-                            selfRef->setStatus("Plist download failed.", true);
+                            // Image is already saved; report partial success.
+                            selfRef->setStatus(
+                                "Image saved but plist download failed.", false);
                             return;
                         }
-
                         auto const& plistBytes = plistResp.data();
                         if (plistBytes.empty()) {
-                            selfRef->setStatus("Empty plist response.", true);
-                            return;
-                        }
-
-                        // Write the plist to disk — CCSpriteFrameCache requires
-                        // a file path rather than in-memory data.
-                        auto saveDir =
-                            Mod::get()->getSaveDir() / "packs" / packId;
-                        std::error_code ec;
-                        std::filesystem::create_directories(saveDir, ec);
-                        if (ec) {
                             selfRef->setStatus(
-                                "Failed to create save directory.", true);
+                                "Image saved but plist was empty.", false);
                             return;
                         }
 
-                        auto plistPath = saveDir / "pack.plist";
+                        // Save plist → Community Icons/icons/<baseName>.plist
+                        auto plistPath = iconsDir / (baseName + ".plist");
                         {
                             std::ofstream ofs(
                                 plistPath, std::ios::binary | std::ios::trunc);
                             if (!ofs) {
                                 selfRef->setStatus(
-                                    "Failed to write plist to disk.", true);
+                                    "Image saved but failed to write plist.", false);
                                 return;
                             }
                             ofs.write(
@@ -343,92 +336,18 @@ protected:
                                 static_cast<std::streamsize>(plistBytes.size()));
                         }
 
-                        // Load all sprite frames from the plist using the
-                        // already-decoded texture so no additional I/O is needed.
-                        // Store the path string to avoid a dangling c_str().
-                        std::string plistPathStr = plistPath.string();
-                        CCSpriteFrameCache::sharedSpriteFrameCache()
-                            ->addSpriteFramesWithFile(
-                                plistPathStr.c_str(), tex);
-
                         selfRef->setStatus(
-                            "Applied! Reopen the Icon Kit to see changes.",
+                            ("Saved " + baseName + " to Community Icons/icons/."
+                             " Restart GD to apply.").c_str(),
                             false);
                     }));
             }));
     }
 
-    // ── Image-only slot apply ─────────────────────────────────────────────────
-
-    // Downloads the pack's preview image, decodes it, and registers it in the
-    // sprite-frame cache under the name that Geometry Dash uses for the chosen
-    // icon slot.  Reopening the Icon Kit (or restarting the game) is required
-    // for the change to appear on the icon buttons.
-    void applyImageToSlot(int slot) {
-        setStatus("Downloading...", false);
-
-        std::string imageUrl = m_pack.imageUrl;
-        IconType    iconType = m_iconType;
-        Ref<IconPackDetailPopup> selfRef(this);
-
-        m_handles.push_back(geode::async::spawn(
-            web::WebRequest().get(imageUrl),
-            [selfRef, slot, iconType](web::WebResponse response) mutable {
-                if (!selfRef) return;
-                if (!response.ok()) {
-                    selfRef->setStatus("Download failed.", true);
-                    return;
-                }
-
-                auto const& bytes = response.data();
-                if (bytes.empty()) {
-                    selfRef->setStatus("Empty response.", true);
-                    return;
-                }
-
-                std::string spriteName = iconSpriteName(iconType, slot);
-
-                auto* img = new CCImage();
-                bool decoded = img->initWithImageData(
-                    const_cast<unsigned char*>(bytes.data()),
-                    static_cast<int>(bytes.size()));
-                if (!decoded) {
-                    img->release();
-                    selfRef->setStatus("Failed to decode image.", true);
-                    return;
-                }
-
-                // Add (or overwrite) the texture in the cache using the
-                // sprite name as the key so subsequent spriteFrameByName()
-                // calls find the new texture.
-                CCTexture2D* tex = CCTextureCache::sharedTextureCache()->addUIImage(
-                    img, spriteName.c_str());
-                img->release();
-
-                if (!tex) {
-                    selfRef->setStatus("Failed to load texture.", true);
-                    return;
-                }
-
-                // Register a new CCSpriteFrame that covers the full texture
-                // rect under the sprite name, replacing the existing frame.
-                auto sz = tex->getContentSize();
-                auto* frame = CCSpriteFrame::createWithTexture(
-                    tex, {0.f, 0.f, sz.width, sz.height});
-                CCSpriteFrameCache::sharedSpriteFrameCache()->addSpriteFrame(
-                    frame, spriteName.c_str());
-
-                selfRef->setStatus(
-                    ("Applied to icon #" + std::to_string(slot) +
-                     "! Reopen Icon Kit.").c_str(),
-                    false);
-            }));
-    }
-
 public:
-    static IconPackDetailPopup* create(IconPack const& pack, IconType iconType) {
+    static IconPackDetailPopup* create(IconPack const& pack) {
         auto ret = new IconPackDetailPopup();
-        if (ret && ret->init(pack, iconType)) {
+        if (ret && ret->init(pack)) {
             ret->autorelease();
             return ret;
         }

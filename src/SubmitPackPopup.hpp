@@ -27,12 +27,13 @@ using namespace geode::prelude;
 // abusers from the Firebase Console.
 class SubmitPackPopup : public geode::Popup {
 protected:
-    TextInput*     m_nameInput     = nullptr;
-    TextInput*     m_authorInput   = nullptr;
-    TextInput*     m_gamemodeInput = nullptr;
-    TextInput*     m_imageUrlInput = nullptr;
-    TextInput*     m_plistUrlInput = nullptr;
-    CCLabelBMFont* m_statusLabel   = nullptr;
+    TextInput*     m_nameInput         = nullptr;
+    TextInput*     m_authorInput       = nullptr;
+    TextInput*     m_gamemodeInput     = nullptr;
+    TextInput*     m_imageUrlInput     = nullptr;
+    TextInput*     m_plistUrlInput     = nullptr;
+    TextInput*     m_graphicsTypeInput = nullptr;
+    CCLabelBMFont* m_statusLabel       = nullptr;
 
     std::optional<arc::TaskHandle<void>> m_submitHandle;
 
@@ -185,7 +186,8 @@ protected:
     static std::string buildDoc(
         std::string const& name, std::string const& author,
         std::string const& gamemode, std::string const& imageUrl,
-        std::string const& plistUrl, std::string const& submittedBy)
+        std::string const& plistUrl, std::string const& graphicsType,
+        std::string const& submittedBy)
     {
         return std::string("{\"fields\":{")
             + "\"name\":{\"stringValue\":\""        + escJson(name)        + "\"},"
@@ -193,13 +195,14 @@ protected:
             + "\"gamemode\":{\"stringValue\":\""    + escJson(gamemode)    + "\"},"
             + "\"imageUrl\":{\"stringValue\":\""    + escJson(imageUrl)    + "\"},"
             + "\"plistUrl\":{\"stringValue\":\""    + escJson(plistUrl)    + "\"},"
+            + "\"graphicsType\":{\"stringValue\":\"" + escJson(graphicsType) + "\"},"
             + "\"submittedBy\":{\"stringValue\":\"" + escJson(submittedBy) + "\"}"
             + "}}";
     }
 
     // ── UI ────────────────────────────────────────────────────────────────────
     bool init() {
-        if (!Popup::init(420.f, 340.f)) return false;
+        if (!Popup::init(420.f, 380.f)) return false;
         this->setTitle("Submit Icon Pack");
         m_bgSprite->setColor({30, 25, 45});
 
@@ -208,7 +211,7 @@ protected:
         const float inputX = winSize.width / 2.f + 20.f;
         const float inputW = 200.f;
         const float startY = winSize.height - 55.f;
-        const float rowH   = 40.f;
+        const float rowH   = 38.f;
 
         auto addRow = [&](const char* lbl, float y, const char* placeholder) -> TextInput* {
             auto l = CCLabelBMFont::create(lbl, "chatFont.fnt");
@@ -224,26 +227,34 @@ protected:
             return inp;
         };
 
-        m_nameInput     = addRow("Pack Name", startY,          "My Cool Icons");
-        m_authorInput   = addRow("Author",    startY - rowH,   "YourUsername");
-        m_gamemodeInput = addRow("Gamemode",  startY - rowH*2, "cube");
-        m_imageUrlInput = addRow("Image URL", startY - rowH*3, "https://...");
-        m_plistUrlInput = addRow("Plist URL", startY - rowH*4, "https://...");
+        m_nameInput         = addRow("Pack Name",     startY,          "My Cool Icons");
+        m_authorInput       = addRow("Author",        startY - rowH,   "YourUsername");
+        m_gamemodeInput     = addRow("Gamemode",      startY - rowH*2, "cube");
+        m_imageUrlInput     = addRow("Image URL",     startY - rowH*3, "https://...");
+        m_plistUrlInput     = addRow("Plist URL",     startY - rowH*4, "https://...");
+        m_graphicsTypeInput = addRow("Graphics Type", startY - rowH*5, "UHD");
 
-        // Small hint under the Gamemode field
-        auto hint = CCLabelBMFont::create(
-            "cube / ship / ball / ufo / wave / robot / spider / swing",
+        // Small hints
+        auto gmHint = CCLabelBMFont::create(
+            "cube / ship / ball / ufo / wave / robot / spider / swing / jetpack",
             "chatFont.fnt");
-        hint->setScale(0.26f);
-        hint->setColor({120, 120, 155});
-        hint->setPosition({inputX, startY - rowH * 2.f - 13.f});
-        m_mainLayer->addChild(hint);
+        gmHint->setScale(0.24f);
+        gmHint->setColor({120, 120, 155});
+        gmHint->setPosition({inputX, startY - rowH * 2.f - 12.f});
+        m_mainLayer->addChild(gmHint);
+
+        auto gtHint = CCLabelBMFont::create(
+            "UHD / HD / Standard", "chatFont.fnt");
+        gtHint->setScale(0.26f);
+        gtHint->setColor({120, 120, 155});
+        gtHint->setPosition({inputX, startY - rowH * 5.f - 12.f});
+        m_mainLayer->addChild(gtHint);
 
         // Status / error label
         m_statusLabel = CCLabelBMFont::create("", "chatFont.fnt");
         m_statusLabel->setScale(0.35f);
         m_statusLabel->setColor({220, 80, 80});
-        m_statusLabel->setPosition({winSize.width / 2.f, 32.f});
+        m_statusLabel->setPosition({winSize.width / 2.f, 36.f});
         m_mainLayer->addChild(m_statusLabel);
 
         // Submit button
@@ -255,7 +266,7 @@ protected:
         spr->setScale(0.8f);
         auto btn = CCMenuItemSpriteExtra::create(
             spr, this, menu_selector(SubmitPackPopup::onSubmit));
-        btn->setPosition({winSize.width / 2.f, 14.f});
+        btn->setPosition({winSize.width / 2.f, 16.f});
         menu->addChild(btn);
 
         return true;
@@ -272,11 +283,12 @@ protected:
         // Prevent double-submit while a request is in-flight
         if (m_submitHandle) return;
 
-        std::string name     = m_nameInput     ? m_nameInput->getString()     : "";
-        std::string author   = m_authorInput   ? m_authorInput->getString()   : "";
-        std::string gamemode = m_gamemodeInput ? m_gamemodeInput->getString() : "";
-        std::string imageUrl = m_imageUrlInput ? m_imageUrlInput->getString() : "";
-        std::string plistUrl = m_plistUrlInput ? m_plistUrlInput->getString() : "";
+        std::string name        = m_nameInput         ? m_nameInput->getString()         : "";
+        std::string author      = m_authorInput       ? m_authorInput->getString()       : "";
+        std::string gamemode    = m_gamemodeInput     ? m_gamemodeInput->getString()     : "";
+        std::string imageUrl    = m_imageUrlInput     ? m_imageUrlInput->getString()     : "";
+        std::string plistUrl    = m_plistUrlInput     ? m_plistUrlInput->getString()     : "";
+        std::string graphicsType = m_graphicsTypeInput ? m_graphicsTypeInput->getString() : "";
 
         // Required fields
         if (name.empty())     { setStatus("Pack name is required.",  true); return; }
@@ -324,7 +336,7 @@ protected:
 
         setStatus("Submitting...", false);
 
-        std::string body = buildDoc(name, author, gamemode, imageUrl, plistUrl, submittedBy);
+        std::string body = buildDoc(name, author, gamemode, imageUrl, plistUrl, graphicsType, submittedBy);
         Ref<SubmitPackPopup> selfRef(this);
 
         // Obtain a Firebase Anonymous Auth token first, then POST the submission.

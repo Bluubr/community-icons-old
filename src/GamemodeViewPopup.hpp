@@ -414,7 +414,7 @@ protected:
         int idx = static_cast<CCNode*>(sender)->getTag();
         auto packs = getFilteredPacks();
         if (idx < 0 || idx >= static_cast<int>(packs.size())) return;
-        IconPackDetailPopup::create(packs[idx], m_iconType)->show();
+        IconPackDetailPopup::create(packs[idx])->show();
     }
 
     void onDiscordBtn(CCObject*) {
@@ -501,6 +501,7 @@ protected:
             pack.gamemode   = parseStringField(fields, "gamemode");
             pack.imageUrl   = parseStringField(fields, "imageUrl");
             pack.plistUrl   = parseStringField(fields, "plistUrl");
+            pack.graphicsType = parseStringField(fields, "graphicsType");
             pack.uploadedAt = parseTimestampField(fields, "uploadedAt");
             pack.downloads  = parseIntField(fields, "Downloads");
             packs.push_back(std::move(pack));
