@@ -160,6 +160,16 @@ protected:
             url += (url.find('?') == std::string::npos ? "?" : "&") + ("key=" + k);
     }
 
+    // Returns true only if url begins with "https://" (case-insensitive).
+    // Prevents file:// or other non-HTTP URLs from being stored/fetched.
+    static bool isHttpsUrl(std::string const& url) {
+        if (url.size() < 8) return false;
+        std::string prefix = url.substr(0, 8);
+        std::transform(prefix.begin(), prefix.end(), prefix.begin(),
+            [](unsigned char c) { return std::tolower(c); });
+        return prefix == "https://";
+    }
+
     static std::string escJson(std::string const& s) {
         std::string out;
         out.reserve(s.size() + 8);
@@ -293,6 +303,17 @@ protected:
         // Required fields
         if (name.empty())     { setStatus("Pack name is required.",  true); return; }
         if (gamemode.empty()) { setStatus("Gamemode is required.",   true); return; }
+
+        // Image URL is required and must be an https:// URL
+        if (imageUrl.empty()) {
+            setStatus("Image URL is required.", true); return;
+        }
+        if (!isHttpsUrl(imageUrl)) {
+            setStatus("Image URL must start with https://.", true); return;
+        }
+        if (!plistUrl.empty() && !isHttpsUrl(plistUrl)) {
+            setStatus("Plist URL must start with https://.", true); return;
+        }
 
         // Profanity / slur filter
         if (containsBanned(name)) {

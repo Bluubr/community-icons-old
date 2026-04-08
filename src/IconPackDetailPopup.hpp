@@ -233,6 +233,30 @@ protected:
         return "";
     }
 
+    // Validates that an icon name contains only safe characters.
+    // GD icon names follow the pattern "Type_Number" (e.g. "Cube_104",
+    // "Swing_3").  Restricting to [A-Za-z0-9_-] prevents path traversal
+    // attacks where a crafted name like "../../system/file" would escape the
+    // Community Icons/icons/ directory.
+    static bool isValidIconName(std::string const& name) {
+        if (name.empty() || name.size() > 64) return false;
+        for (char c : name) {
+            if (!std::isalnum(static_cast<unsigned char>(c)) &&
+                c != '_' && c != '-') return false;
+        }
+        return true;
+    }
+
+    // Returns true if url starts with "https://" (case-insensitive).
+    // Prevents local file:// or other non-HTTP URLs from being fetched.
+    static bool isHttpsUrl(std::string const& url) {
+        if (url.size() < 8) return false;
+        std::string prefix = url.substr(0, 8);
+        std::transform(prefix.begin(), prefix.end(), prefix.begin(),
+            [](unsigned char c) { return std::tolower(c); });
+        return prefix == "https://";
+    }
+
     // ── Apply button handler ──────────────────────────────────────────────────
 
     void onApply(CCObject*) {
@@ -246,6 +270,23 @@ protected:
 
         if (iconName.empty()) {
             setStatus("Please enter an icon name (e.g. Cube_104).", true);
+            return;
+        }
+
+        // Reject names that contain path separators or non-identifier characters
+        // to prevent path traversal (e.g. "../../etc/passwd").
+        if (!isValidIconName(iconName)) {
+            setStatus("Icon name may only contain letters, digits, _ and -.", true);
+            return;
+        }
+
+        // Only allow https:// URLs to prevent local file:// access.
+        if (!isHttpsUrl(m_pack.imageUrl)) {
+            setStatus("Pack has an invalid image URL.", true);
+            return;
+        }
+        if (!m_pack.plistUrl.empty() && !isHttpsUrl(m_pack.plistUrl)) {
+            setStatus("Pack has an invalid plist URL.", true);
             return;
         }
 
