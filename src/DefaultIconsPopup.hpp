@@ -16,7 +16,6 @@ struct GamemodeEntry {
 
 class DefaultIconsPopup : public geode::Popup {
 protected:
-    // Mod panel button — shown only if the current player is a moderator
     CCMenuItemSpriteExtra*               m_modBtn         = nullptr;
     std::optional<arc::TaskHandle<void>> m_modCheckHandle;
 
@@ -40,7 +39,6 @@ protected:
 
         this->setTitle("Community Icons");
 
-        // Dark mode background
         m_bgSprite->setColor({35, 35, 50});
 
         auto winSize = m_mainLayer->getContentSize();
@@ -82,7 +80,6 @@ protected:
         }
         scrollLayer->moveToTop();
 
-        // Moderator badge button — top-right corner; hidden until the mod check passes
         auto modMenu = CCMenu::create();
         modMenu->setPosition({0.f, 0.f});
         m_mainLayer->addChild(modMenu, 10);
@@ -104,14 +101,12 @@ protected:
         return true;
     }
 
-    // Queries Firestore to see if the current GD account ID has a moderator document.
-    // Shows the mod badge button if it does.
     void checkModeratorStatus() {
         auto projectId = Mod::get()->getSettingValue<std::string>("firebase-project-id");
         if (projectId.empty()) return;
 
         int accountID = GJAccountManager::sharedState()->m_accountID;
-        if (accountID <= 0) return; // not logged in to a GD account
+        if (accountID <= 0) return;
 
         std::string url =
             "https://firestore.googleapis.com/v1/projects/" + projectId +
@@ -126,7 +121,6 @@ protected:
             web::WebRequest().get(url),
             [selfRef](web::WebResponse response) mutable {
                 if (!selfRef || !selfRef->m_modBtn) return;
-                // HTTP 200 means the moderator document exists
                 if (response.ok()) {
                     selfRef->m_modBtn->setVisible(true);
                 }

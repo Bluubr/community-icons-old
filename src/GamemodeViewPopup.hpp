@@ -24,20 +24,15 @@ protected:
     CCLabelBMFont* m_emptyLabel   = nullptr;
     CCLabelBMFont* m_loadingLabel = nullptr;
 
-    // All packs for this gamemode fetched from Firestore
     std::vector<IconPack> m_allPacks;
 
-    // Task handles kept alive for the duration of async operations;
-    // destroying a handle cancels the in-flight request.
     std::optional<arc::TaskHandle<void>>   m_fetchHandle;
     std::vector<arc::TaskHandle<void>>     m_imageHandles;
 
-    // 4 × 4 grid gives each icon-pack cell enough room for a thumbnail + text
     static constexpr int GRID_COLS      = 4;
     static constexpr int GRID_ROWS      = 4;
     static constexpr int PACKS_PER_PAGE = GRID_COLS * GRID_ROWS;
 
-    // -----------------------------------------------------------------------
     bool init(IconType iconType, std::string const& name) {
         if (!Popup::init(520.f, 420.f)) return false;
 
@@ -45,12 +40,10 @@ protected:
         m_gamemodeName = name;
         this->setTitle(name);
 
-        // Dark background
         m_bgSprite->setColor({35, 35, 50});
 
         auto winSize = m_mainLayer->getContentSize();
 
-        // Search bar
         auto searchBar = TextInput::create(260.f, "Search...");
         searchBar->setPosition({winSize.width / 2.f, winSize.height - 35.f});
         m_mainLayer->addChild(searchBar);
@@ -60,7 +53,6 @@ protected:
             this->refreshIcons();
         });
 
-        // Prev / Next navigation
         auto navMenu = CCMenu::create();
         navMenu->setPosition({0.f, 0.f});
         m_mainLayer->addChild(navMenu);
@@ -80,7 +72,6 @@ protected:
         nextBtn->setPosition({winSize.width - 18.f, winSize.height / 2.f - 10.f});
         navMenu->addChild(nextBtn);
 
-        // Page indicator
         m_pageLabel = CCLabelBMFont::create("", "chatFont.fnt");
         m_pageLabel->setScale(0.55f);
         m_pageLabel->setColor({190, 190, 215});
@@ -88,7 +79,6 @@ protected:
         m_pageLabel->setVisible(false);
         m_mainLayer->addChild(m_pageLabel);
 
-        // Loading label
         m_loadingLabel = CCLabelBMFont::create("Loading...", "bigFont.fnt");
         m_loadingLabel->setScale(0.45f);
         m_loadingLabel->setColor({170, 170, 200});
@@ -96,7 +86,6 @@ protected:
         m_loadingLabel->setVisible(false);
         m_mainLayer->addChild(m_loadingLabel);
 
-        // Empty-state label
         m_emptyLabel = CCLabelBMFont::create("No icon packs found", "bigFont.fnt");
         m_emptyLabel->setScale(0.45f);
         m_emptyLabel->setColor({170, 170, 200});
@@ -104,12 +93,10 @@ protected:
         m_emptyLabel->setVisible(false);
         m_mainLayer->addChild(m_emptyLabel);
 
-        // Grid container; rebuilt on every page refresh
         m_iconGrid = CCNode::create();
         m_iconGrid->setPosition({0.f, 0.f});
         m_mainLayer->addChild(m_iconGrid);
 
-        // Discord button — bottom-left corner
         auto discordMenu = CCMenu::create();
         discordMenu->setPosition({0.f, 0.f});
         m_mainLayer->addChild(discordMenu);
@@ -117,7 +104,7 @@ protected:
         auto discordLbl = CCLabelBMFont::create(
             "Join the Discord to add\nyour own custom icons", "chatFont.fnt");
         discordLbl->setScale(0.38f);
-        discordLbl->setColor({88, 101, 242}); // Discord blurple
+        discordLbl->setColor({88, 101, 242});
         discordLbl->setAlignment(kCCTextAlignmentLeft);
 
         auto discordBtn = CCMenuItemSpriteExtra::create(
@@ -127,7 +114,6 @@ protected:
         discordBtn->setPosition({8.f, 22.f});
         discordMenu->addChild(discordBtn);
 
-        // "Submit Pack" button — bottom-right corner
         auto submitMenu = CCMenu::create();
         submitMenu->setPosition({0.f, 0.f});
         m_mainLayer->addChild(submitMenu);
@@ -144,10 +130,6 @@ protected:
         this->fetchPacks();
         return true;
     }
-
-    // -----------------------------------------------------------------------
-    // Firebase Firestore fetch
-    // -----------------------------------------------------------------------
 
     void fetchPacks() {
         auto projectId = Mod::get()->getSettingValue<std::string>("firebase-project-id");
@@ -187,7 +169,6 @@ protected:
     }
 
     void onPacksFetched(std::vector<IconPack> packs) {
-        // Keep only packs whose gamemode matches this popup (case-insensitive)
         auto toLower = [](unsigned char c) { return std::tolower(c); };
 
         std::string gmLower = m_gamemodeName;
@@ -216,11 +197,6 @@ protected:
         m_emptyLabel->setVisible(true);
     }
 
-    // -----------------------------------------------------------------------
-    // Helpers
-    // -----------------------------------------------------------------------
-
-    // Returns m_allPacks filtered by the current search text (name / author)
     std::vector<IconPack> getFilteredPacks() const {
         if (m_searchText.empty()) return m_allPacks;
 
@@ -246,13 +222,8 @@ protected:
         return std::max(1, (n + PACKS_PER_PAGE - 1) / PACKS_PER_PAGE);
     }
 
-    // -----------------------------------------------------------------------
-    // Grid rendering
-    // -----------------------------------------------------------------------
-
     void refreshIcons() {
         m_iconGrid->removeAllChildren();
-        // Cancel any in-flight thumbnail downloads from the previous page
         m_imageHandles.clear();
 
         auto winSize = m_mainLayer->getContentSize();
@@ -273,7 +244,6 @@ protected:
             (std::to_string(m_currentPage + 1) + " / " +
              std::to_string(totalPages)).c_str());
 
-        // Cell dimensions — side margins leave room for nav arrows
         float cellW  = (winSize.width - 60.f) / GRID_COLS;
         float cellH  = (winSize.height - 80.f) / GRID_ROWS;
         float startX = 30.f + cellW / 2.f;
@@ -296,9 +266,6 @@ protected:
         IconPack const& pack, int packIdx,
         float x, float y, float cellW, float cellH)
     {
-        // ── Clickable cell background ────────────────────────────────────
-        // The CCScale9Sprite is used directly as the CCMenuItemSpriteExtra
-        // sprite so it dims on tap, providing built-in press feedback.
         auto cell = CCScale9Sprite::create("GJ_square02.png");
         cell->setContentSize({cellW - 4.f, cellH - 4.f});
         cell->setColor({55, 55, 75});
@@ -315,7 +282,6 @@ protected:
         cellBtn->setTag(packIdx);
         cellMenu->addChild(cellBtn);
 
-        // ── Thumbnail placeholder (replaced when the image arrives) ──────
         float maxThumbW = cellW - 12.f;
         float maxThumbH = cellH * 0.52f;
 
@@ -324,7 +290,6 @@ protected:
         thumb->setVisible(false);
         m_iconGrid->addChild(thumb);
 
-        // ── Pack name label ───────────────────────────────────────────────
         auto nameLabel = CCLabelBMFont::create(
             pack.name.empty() ? "Unnamed" : pack.name.c_str(), "chatFont.fnt");
         nameLabel->setScale(0.4f);
@@ -333,7 +298,6 @@ protected:
         nameLabel->setPosition({x, y - (cellH - 4.f) * 0.27f});
         m_iconGrid->addChild(nameLabel);
 
-        // ── Author label ─────────────────────────────────────────────────
         if (!pack.author.empty()) {
             auto authorLabel = CCLabelBMFont::create(
                 ("by " + pack.author).c_str(), "chatFont.fnt");
@@ -344,7 +308,6 @@ protected:
             m_iconGrid->addChild(authorLabel);
         }
 
-        // ── Async thumbnail download from Firebase Storage ───────────────
         if (pack.imageUrl.empty()) return;
 
         std::string imageUrl  = pack.imageUrl;
@@ -363,7 +326,6 @@ protected:
             auto const& bytes = response.data();
             if (bytes.empty()) return;
 
-            // Re-use a previously decoded texture if available
             auto* existingTex =
                 CCTextureCache::sharedTextureCache()->textureForKey(cacheKey.c_str());
 
@@ -390,10 +352,6 @@ protected:
             thumbRef->setVisible(true);
         }));
     }
-
-    // -----------------------------------------------------------------------
-    // Navigation
-    // -----------------------------------------------------------------------
 
     void onPrevPage(CCObject*) {
         if (m_currentPage > 0) {
@@ -428,11 +386,6 @@ protected:
         SubmitPackPopup::create()->show();
     }
 
-    // -----------------------------------------------------------------------
-    // Firestore REST API response parser
-    // -----------------------------------------------------------------------
-
-    // Safely reads a Firestore string field: { "stringValue": "..." }
     static std::string parseStringField(
         matjson::Value const& fields, std::string const& key)
     {
@@ -443,8 +396,6 @@ protected:
         return r ? *r : "";
     }
 
-    // Safely reads a Firestore integer field: { "integerValue": "5" }
-    // (Firestore REST API encodes integers as strings.)
     static int parseIntField(
         matjson::Value const& fields, std::string const& key)
     {
@@ -459,8 +410,6 @@ protected:
         return 0;
     }
 
-    // Safely reads a Firestore timestamp field: { "timestampValue": "2026-04-03T04:00:00Z" }
-    // Returns the raw RFC 3339 string (e.g. "2026-04-03T04:00:00Z").
     static std::string parseTimestampField(
         matjson::Value const& fields, std::string const& key)
     {
@@ -471,18 +420,14 @@ protected:
         return r ? *r : "";
     }
 
-    // Extracts the document ID from a full Firestore resource name.
-    // e.g. "projects/p/databases/(default)/documents/iconPacks/DOC_ID" → "DOC_ID"
     static std::string extractDocId(std::string const& docName) {
         auto pos = docName.rfind('/');
         return (pos != std::string::npos) ? docName.substr(pos + 1) : docName;
     }
 
-    // Converts a raw Firestore REST response into a list of IconPack structs.
     static std::vector<IconPack> parseFirestoreResponse(matjson::Value const& json) {
         std::vector<IconPack> packs;
 
-        // Firestore returns {} (no "documents" key) when the collection is empty
         if (!json.contains("documents")) return packs;
 
         auto docsResult = json["documents"].asArray();
