@@ -144,6 +144,7 @@ protected:
             + "\"gamemode\":{\"stringValue\":\"" + esc(pack.gamemode) + "\"},"
             + "\"imageUrl\":{\"stringValue\":\"" + esc(pack.imageUrl) + "\"},"
             + "\"plistUrl\":{\"stringValue\":\"" + esc(pack.plistUrl) + "\"},"
+            + "\"graphicsType\":{\"stringValue\":\"" + esc(pack.graphicsType) + "\"},"
             + "\"Downloads\":{\"integerValue\":\"0\"}"
             + "}}";
     }
@@ -193,6 +194,7 @@ protected:
                             pack.gamemode   = parseStringField(f, "gamemode");
                             pack.imageUrl   = parseStringField(f, "imageUrl");
                             pack.plistUrl   = parseStringField(f, "plistUrl");
+                            pack.graphicsType = parseStringField(f, "graphicsType");
                             pack.uploadedAt = parseTimestampField(f, "uploadedAt");
                             packs.push_back(std::move(pack));
                         }

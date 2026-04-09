@@ -6,6 +6,7 @@
 #include <Geode/utils/web.hpp>
 #include <Geode/utils/async.hpp>
 #include "IconPack.hpp"
+#include "IconPackDetailPopup.hpp"
 #include "SubmitPackPopup.hpp"
 
 using namespace geode::prelude;
@@ -287,20 +288,32 @@ protected:
             int row      = localIdx / GRID_COLS;
             float x      = startX + col * cellW;
             float y      = startY - row * cellH;
-            buildPackCell(packs[i], x, y, cellW, cellH);
+            buildPackCell(packs[i], i, x, y, cellW, cellH);
         }
     }
 
     void buildPackCell(
-        IconPack const& pack, float x, float y, float cellW, float cellH)
+        IconPack const& pack, int packIdx,
+        float x, float y, float cellW, float cellH)
     {
-        // ── Cell background ──────────────────────────────────────────────
+        // ── Clickable cell background ────────────────────────────────────
+        // The CCScale9Sprite is used directly as the CCMenuItemSpriteExtra
+        // sprite so it dims on tap, providing built-in press feedback.
         auto cell = CCScale9Sprite::create("GJ_square02.png");
         cell->setContentSize({cellW - 4.f, cellH - 4.f});
-        cell->setPosition({x, y});
         cell->setColor({55, 55, 75});
         cell->setOpacity(210);
-        m_iconGrid->addChild(cell);
+
+        auto cellMenu = CCMenu::create();
+        cellMenu->setPosition({0.f, 0.f});
+        m_iconGrid->addChild(cellMenu);
+
+        auto cellBtn = CCMenuItemSpriteExtra::create(
+            cell, this,
+            menu_selector(GamemodeViewPopup::onPackCellClicked));
+        cellBtn->setPosition({x, y});
+        cellBtn->setTag(packIdx);
+        cellMenu->addChild(cellBtn);
 
         // ── Thumbnail placeholder (replaced when the image arrives) ──────
         float maxThumbW = cellW - 12.f;
@@ -397,6 +410,13 @@ protected:
         }
     }
 
+    void onPackCellClicked(CCObject* sender) {
+        int idx = static_cast<CCNode*>(sender)->getTag();
+        auto packs = getFilteredPacks();
+        if (idx < 0 || idx >= static_cast<int>(packs.size())) return;
+        IconPackDetailPopup::create(packs[idx])->show();
+    }
+
     void onDiscordBtn(CCObject*) {
         auto url = Mod::get()->getSettingValue<std::string>("discord-url");
         if (!url.empty()) {
@@ -481,6 +501,7 @@ protected:
             pack.gamemode   = parseStringField(fields, "gamemode");
             pack.imageUrl   = parseStringField(fields, "imageUrl");
             pack.plistUrl   = parseStringField(fields, "plistUrl");
+            pack.graphicsType = parseStringField(fields, "graphicsType");
             pack.uploadedAt = parseTimestampField(fields, "uploadedAt");
             pack.downloads  = parseIntField(fields, "Downloads");
             packs.push_back(std::move(pack));
