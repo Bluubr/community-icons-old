@@ -11,20 +11,6 @@
 
 using namespace geode::prelude;
 
-// Popup that lets any logged-in player submit an icon pack for moderator review.
-//
-// Two anti-abuse layers are applied before the Firestore POST:
-//   1. Banned-word filter  — pack name and author are rejected if they contain any
-//      word from the bannedWords() list (case-insensitive substring match).
-//      Extend that list in the source to cover slurs / additional profanity.
-//
-//   2. Submission cooldown — at most one submission per GD account per hour.
-//      The timestamp of the last successful submit is stored in Geode's per-mod
-//      save data (key: "last_pack_submit_epoch").
-//
-// Every accepted submission writes a `submittedBy` field (GD Account ID as a
-// string) to the Firestore document so moderators can track and ban repeat
-// abusers from the Firebase Console.
 class SubmitPackPopup : public geode::Popup {
 protected:
     TextInput*     m_nameInput         = nullptr;
@@ -37,13 +23,9 @@ protected:
 
     std::optional<arc::TaskHandle<void>> m_submitHandle;
 
-    // One hour between submissions from the same device / account.
     static constexpr int64_t     COOLDOWN_SECS = 3600;
     static constexpr const char* COOLDOWN_KEY  = "last_pack_submit_epoch";
 
-    // ── Banned-word filter ────────────────────────────────────────────────────
-    // All words are lower-case; matching is case-insensitive substring search.
-    // Source: community-provided en.txt word list.
     static std::vector<std::string> const& bannedWords() {
         static const std::vector<std::string> words = {
             "2g1c","2 girls 1 cup","acrotomophilia","alabama hot pocket",
@@ -132,7 +114,6 @@ protected:
         return false;
     }
 
-    // ── Submission cooldown ───────────────────────────────────────────────────
     static int64_t nowSecs() {
         return static_cast<int64_t>(
             std::chrono::duration_cast<std::chrono::seconds>(
@@ -153,15 +134,12 @@ protected:
         Mod::get()->setSavedValue<int64_t>(COOLDOWN_KEY, nowSecs());
     }
 
-    // ── Firestore helpers ─────────────────────────────────────────────────────
     static void appendApiKey(std::string& url) {
         auto k = Mod::get()->getSettingValue<std::string>("firebase-api-key");
         if (!k.empty())
             url += (url.find('?') == std::string::npos ? "?" : "&") + ("key=" + k);
     }
 
-    // Returns true only if url begins with "https://" (case-insensitive).
-    // Prevents file:// or other non-HTTP URLs from being stored/fetched.
     static bool isHttpsUrl(std::string const& url) {
         if (url.size() < 8) return false;
         std::string prefix = url.substr(0, 8);
@@ -210,7 +188,6 @@ protected:
             + "}}";
     }
 
-    // ── UI ────────────────────────────────────────────────────────────────────
     bool init() {
         if (!Popup::init(420.f, 380.f)) return false;
         this->setTitle("Submit Icon Pack");
@@ -244,7 +221,6 @@ protected:
         m_plistUrlInput     = addRow("Plist URL",     startY - rowH*4, "https://...");
         m_graphicsTypeInput = addRow("Graphics Type", startY - rowH*5, "UHD");
 
-        // Small hints
         auto gmHint = CCLabelBMFont::create(
             "cube / ship / ball / ufo / wave / robot / spider / swing / jetpack",
             "chatFont.fnt");
@@ -260,14 +236,12 @@ protected:
         gtHint->setPosition({inputX, startY - rowH * 5.f - 12.f});
         m_mainLayer->addChild(gtHint);
 
-        // Status / error label
         m_statusLabel = CCLabelBMFont::create("", "chatFont.fnt");
         m_statusLabel->setScale(0.35f);
         m_statusLabel->setColor({220, 80, 80});
         m_statusLabel->setPosition({winSize.width / 2.f, 36.f});
         m_mainLayer->addChild(m_statusLabel);
 
-        // Submit button
         auto menu = CCMenu::create();
         menu->setPosition({0.f, 0.f});
         m_mainLayer->addChild(menu);
@@ -290,7 +264,6 @@ protected:
     }
 
     void onSubmit(CCObject*) {
-        // Prevent double-submit while a request is in-flight
         if (m_submitHandle) return;
 
         std::string name        = m_nameInput         ? m_nameInput->getString()         : "";
@@ -300,11 +273,9 @@ protected:
         std::string plistUrl    = m_plistUrlInput     ? m_plistUrlInput->getString()     : "";
         std::string graphicsType = m_graphicsTypeInput ? m_graphicsTypeInput->getString() : "";
 
-        // Required fields
         if (name.empty())     { setStatus("Pack name is required.",  true); return; }
         if (gamemode.empty()) { setStatus("Gamemode is required.",   true); return; }
 
-        // Image URL is required and must be an https:// URL
         if (imageUrl.empty()) {
             setStatus("Image URL is required.", true); return;
         }
@@ -315,7 +286,6 @@ protected:
             setStatus("Plist URL must start with https://.", true); return;
         }
 
-        // Profanity / slur filter
         if (containsBanned(name)) {
             setStatus("Pack name contains prohibited words.", true);
             return;
@@ -325,7 +295,6 @@ protected:
             return;
         }
 
-        // Rate limiting: at most one submission per hour
         int secondsLeft = 0;
         if (onCooldown(secondsLeft)) {
             int minutes = secondsLeft / 60, seconds = secondsLeft % 60;
@@ -342,7 +311,6 @@ protected:
             return;
         }
 
-        // Block submissions from unauthenticated accounts to prevent anonymous spam
         auto* acc = GJAccountManager::sharedState();
         if (!acc || acc->m_accountID <= 0) {
             setStatus("You must be logged into Geometry Dash to submit.", true);
@@ -360,9 +328,6 @@ protected:
         std::string body = buildDoc(name, author, gamemode, imageUrl, plistUrl, graphicsType, submittedBy);
         Ref<SubmitPackPopup> selfRef(this);
 
-        // Obtain a Firebase Anonymous Auth token first, then POST the submission.
-        // The token ensures Firestore rules can require `request.auth != null`
-        // so external scripts without a valid token get HTTP 401/403.
         FirebaseAuth::withToken([selfRef, url, body](std::string const& idToken) mutable {
             if (!selfRef) return;
 

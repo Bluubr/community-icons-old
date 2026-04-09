@@ -9,9 +9,6 @@
 
 using namespace geode::prelude;
 
-// Shown only to recognised moderators.
-// Fetches the `pendingIconPacks` Firestore collection and lets mods accept
-// (copies to `iconPacks` + deletes from pending) or decline (deletes from pending).
 class ModerationPopup : public geode::Popup {
 protected:
     std::vector<IconPack>                m_pendingPacks;
@@ -23,8 +20,6 @@ protected:
 
     static constexpr int ITEMS_PER_PAGE = 5;
 
-    // ── Init ─────────────────────────────────────────────────────────────────
-
     bool init() {
         if (!Popup::init(500.f, 360.f)) return false;
 
@@ -33,7 +28,6 @@ protected:
 
         auto winSize = m_mainLayer->getContentSize();
 
-        // Badge icon in the top-right corner of the title bar
         auto badge = CCSprite::create(
             (Mod::get()->getResourcesDir() / "icon_mod_badge.png").string().c_str());
         if (badge) {
@@ -42,14 +36,12 @@ protected:
             m_mainLayer->addChild(badge, 10);
         }
 
-        // Status / loading label (centre of popup)
         m_statusLabel = CCLabelBMFont::create("Loading submissions...", "bigFont.fnt");
         m_statusLabel->setScale(0.4f);
         m_statusLabel->setColor({170, 170, 200});
         m_statusLabel->setPosition({winSize.width / 2.f, winSize.height / 2.f});
         m_mainLayer->addChild(m_statusLabel);
 
-        // Prev / Next navigation arrows
         auto navMenu = CCMenu::create();
         navMenu->setPosition({0.f, 0.f});
         m_mainLayer->addChild(navMenu);
@@ -69,7 +61,6 @@ protected:
         nextBtn->setPosition({winSize.width - 14.f, winSize.height / 2.f - 14.f});
         navMenu->addChild(nextBtn);
 
-        // Container for the per-row widgets; rebuilt on each page refresh
         m_listContainer = CCNode::create();
         m_listContainer->setPosition({0.f, 0.f});
         m_mainLayer->addChild(m_listContainer);
@@ -77,8 +68,6 @@ protected:
         this->fetchPending();
         return true;
     }
-
-    // ── Helpers (defined before callers) ─────────────────────────────────────
 
     static std::string extractDocId(std::string const& docName) {
         auto pos = docName.rfind('/');
@@ -101,7 +90,6 @@ protected:
         return r ? *r : "";
     }
 
-    // Appends ?key=... (or &key=...) if firebase-api-key is configured
     static void appendApiKey(std::string& url) {
         auto key = Mod::get()->getSettingValue<std::string>("firebase-api-key");
         if (!key.empty()) {
@@ -110,10 +98,7 @@ protected:
         }
     }
 
-    // Build the Firestore REST request body for creating an iconPack document
     static std::string buildFirestoreDoc(IconPack const& pack) {
-        // Escape a string value for embedding in a JSON string literal,
-        // handling all control characters as well as " and \.
         auto esc = [](std::string const& s) {
             std::string out;
             out.reserve(s.size() + 8);
@@ -126,7 +111,6 @@ protected:
                     case '\t': out += "\\t";  break;
                     default:
                         if (c < 0x20) {
-                            // Other control characters → \uXXXX
                             char buf[8];
                             snprintf(buf, sizeof(buf), "\\u%04x", c);
                             out += buf;
@@ -148,8 +132,6 @@ protected:
             + "\"Downloads\":{\"integerValue\":\"0\"}"
             + "}}";
     }
-
-    // ── Firestore fetch ───────────────────────────────────────────────────────
 
     void fetchPending() {
         auto projectId = Mod::get()->getSettingValue<std::string>("firebase-project-id");
@@ -206,8 +188,6 @@ protected:
             });
     }
 
-    // ── List rendering ────────────────────────────────────────────────────────
-
     void refreshList() {
         m_listContainer->removeAllChildren();
 
@@ -238,7 +218,6 @@ protected:
     void buildRow(int idx, float y, float w) {
         auto const& pack = m_pendingPacks[idx];
 
-        // Row background
         auto bg = CCScale9Sprite::create("GJ_square02.png");
         bg->setContentSize({w - 44.f, 46.f});
         bg->setPosition({w / 2.f, y});
@@ -246,7 +225,6 @@ protected:
         bg->setOpacity(210);
         m_listContainer->addChild(bg);
 
-        // Pack name
         auto nameLabel = CCLabelBMFont::create(
             pack.name.empty() ? "Unnamed" : pack.name.c_str(), "chatFont.fnt");
         nameLabel->setScale(0.45f);
@@ -256,7 +234,6 @@ protected:
         nameLabel->setPosition({24.f, y + 8.f});
         m_listContainer->addChild(nameLabel);
 
-        // Gamemode + author (smaller, secondary line)
         std::string meta = pack.gamemode;
         if (!pack.author.empty()) meta += " · by " + pack.author;
         auto metaLabel = CCLabelBMFont::create(meta.c_str(), "chatFont.fnt");
@@ -267,7 +244,6 @@ protected:
         metaLabel->setPosition({24.f, y - 9.f});
         m_listContainer->addChild(metaLabel);
 
-        // Accept / Decline buttons
         auto actionMenu = CCMenu::create();
         actionMenu->setPosition({0.f, 0.f});
         m_listContainer->addChild(actionMenu);
@@ -289,8 +265,6 @@ protected:
         actionMenu->addChild(declineBtn);
     }
 
-    // ── Moderation actions ────────────────────────────────────────────────────
-
     void onAccept(CCObject* sender) {
         int idx = static_cast<CCNode*>(sender)->getTag();
         if (idx < 0 || idx >= static_cast<int>(m_pendingPacks.size())) return;
@@ -299,13 +273,11 @@ protected:
         auto projectId = Mod::get()->getSettingValue<std::string>("firebase-project-id");
         if (projectId.empty()) return;
 
-        // POST to iconPacks (creates a new document with auto-generated ID)
         std::string postUrl =
             "https://firestore.googleapis.com/v1/projects/" + projectId +
             "/databases/(default)/documents/iconPacks";
         appendApiKey(postUrl);
 
-        // DELETE from pendingIconPacks
         std::string deleteUrl =
             "https://firestore.googleapis.com/v1/projects/" + projectId +
             "/databases/(default)/documents/pendingIconPacks/" + pack.id;
@@ -316,7 +288,6 @@ protected:
         std::string packName = pack.name.empty() ? "Unnamed" : pack.name;
         Ref<ModerationPopup> selfRef(this);
 
-        // Get auth token first so Firestore rules can require request.auth != null
         FirebaseAuth::withToken([selfRef, postUrl, deleteUrl, body, packId, packName]
                                 (std::string const& idToken) mutable {
             if (!selfRef) return;
@@ -341,8 +312,6 @@ protected:
                             "OK", nullptr, 340.f)->show();
                         return;
                     }
-                    // POST succeeded — re-acquire token for the DELETE in case it
-                    // has expired during the round-trip, then delete the pending doc.
                     FirebaseAuth::withToken([selfRef, deleteUrl, packId]
                                            (std::string const& delToken) mutable {
                         if (!selfRef) return;
@@ -377,7 +346,6 @@ protected:
 
         Ref<ModerationPopup> selfRef(this);
 
-        // Get auth token first so Firestore rules can require request.auth != null
         FirebaseAuth::withToken([selfRef, deleteUrl, packId, packName]
                                 (std::string const& idToken) mutable {
             if (!selfRef) return;
@@ -405,7 +373,6 @@ protected:
         });
     }
 
-    // Remove a pack from the local list by ID, then refresh
     void removePack(std::string const& packId) {
         m_pendingPacks.erase(
             std::remove_if(m_pendingPacks.begin(), m_pendingPacks.end(),
@@ -413,8 +380,6 @@ protected:
             m_pendingPacks.end());
         refreshList();
     }
-
-    // ── Navigation ────────────────────────────────────────────────────────────
 
     void onPrevPage(CCObject*) {
         if (m_currentPage > 0) { --m_currentPage; refreshList(); }

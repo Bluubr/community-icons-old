@@ -10,26 +10,6 @@
 
 using namespace geode::prelude;
 
-// Shown when the user taps an icon-pack cell in GamemodeViewPopup.
-//
-// Displays a full-size preview of the pack's thumbnail together with its
-// name, author, and graphics type.  The user types the icon slot they want
-// to replace (e.g. "Cube_104" or "Swing_3") and presses "Apply Icon".
-//
-// On apply the mod:
-//   1. Locates Texture Loader's config directory – the sibling of our own
-//      config dir: <geode>/config/geode.texture-loader/.
-//   2. Ensures a "Community Icons" pack folder exists inside it with an
-//      icons/ sub-directory.  If Texture Loader is not installed the
-//      directory is still created so the user can enable it later.
-//   3. Downloads the pack's image and optional plist.
-//   4. Saves the files as:
-//        Community Icons/icons/<iconName><suffix>.png
-//        Community Icons/icons/<iconName><suffix>.plist
-//      where <suffix> is "UHD", "HD", or "" (Standard / empty).
-//
-// The user must restart Geometry Dash (or use Texture Loader's reload
-// option) for the replacement to take effect in-game.
 class IconPackDetailPopup : public geode::Popup {
 protected:
     IconPack       m_pack;
@@ -39,8 +19,6 @@ protected:
     TextInput*     m_iconNameInput = nullptr;
 
     std::vector<arc::TaskHandle<void>> m_handles;
-
-    // ── Init ─────────────────────────────────────────────────────────────────
 
     bool init(IconPack const& pack) {
         if (!Popup::init(440.f, 360.f)) return false;
@@ -52,7 +30,6 @@ protected:
 
         auto winSize = m_mainLayer->getContentSize();
 
-        // ── Author + graphics-type sub-heading ───────────────────────────
         std::string subLine;
         if (!pack.author.empty())       subLine = "by " + pack.author;
         if (!pack.graphicsType.empty()) {
@@ -67,7 +44,6 @@ protected:
             m_mainLayer->addChild(subLbl);
         }
 
-        // ── Preview area ─────────────────────────────────────────────────
         float previewH = winSize.height * 0.38f;
         float previewY = winSize.height - 58.f - previewH / 2.f;
 
@@ -83,10 +59,6 @@ protected:
         m_previewSprite->setVisible(false);
         m_mainLayer->addChild(m_previewSprite);
 
-        // ── Icon slot input ──────────────────────────────────────────────
-        // User types the base name of the icon to replace, e.g. "Cube_104"
-        // or "Swing_3".  The graphics-type suffix and extension are appended
-        // automatically when the file is saved.
         float inputRowY = previewY - previewH / 2.f - 26.f;
 
         auto nameLbl = CCLabelBMFont::create("Replace icon:", "chatFont.fnt");
@@ -100,7 +72,6 @@ protected:
         m_iconNameInput->setPosition({winSize.width / 2.f + 81.f, inputRowY});
         m_mainLayer->addChild(m_iconNameInput);
 
-        // Small hint showing which suffix will be appended to the file name
         std::string suffixNote = "File suffix: ";
         if (pack.graphicsType.empty() || pack.graphicsType == "Standard") {
             suffixNote += "(none)";
@@ -113,14 +84,12 @@ protected:
         hintLbl->setPosition({winSize.width / 2.f, inputRowY - 14.f});
         m_mainLayer->addChild(hintLbl);
 
-        // ── Status label ─────────────────────────────────────────────────
         m_statusLabel = CCLabelBMFont::create("", "chatFont.fnt");
         m_statusLabel->setScale(0.33f);
         m_statusLabel->setColor({220, 80, 80});
         m_statusLabel->setPosition({winSize.width / 2.f, 36.f});
         m_mainLayer->addChild(m_statusLabel);
 
-        // ── Apply button ─────────────────────────────────────────────────
         auto btnMenu = CCMenu::create();
         btnMenu->setPosition({0.f, 0.f});
         m_mainLayer->addChild(btnMenu);
@@ -133,15 +102,12 @@ protected:
         applyBtn->setPosition({winSize.width / 2.f, 16.f});
         btnMenu->addChild(applyBtn);
 
-        // ── Load preview thumbnail ────────────────────────────────────────
         if (!pack.imageUrl.empty()) {
             loadPreview(pack.imageUrl, winSize.width - 60.f, previewH - 8.f);
         }
 
         return true;
     }
-
-    // ── Thumbnail ─────────────────────────────────────────────────────────────
 
     void loadPreview(std::string const& url, float maxW, float maxH) {
         std::string cacheKey = "ci_detail_" + m_pack.id;
@@ -181,8 +147,6 @@ protected:
             }));
     }
 
-    // ── Status helper ─────────────────────────────────────────────────────────
-
     void setStatus(const char* msg, bool error) {
         if (!m_statusLabel) return;
         m_statusLabel->setString(msg);
@@ -190,9 +154,6 @@ protected:
             error ? ccColor3B{220, 80, 80} : ccColor3B{80, 200, 100});
     }
 
-    // ── Texture Loader path helpers ───────────────────────────────────────────
-
-    // Name of the pack folder written inside Texture Loader's config directory.
     static constexpr const char* TL_PACK_NAME = "Community Icons";
 
     static std::string trimWhitespace(std::string s) {
@@ -202,16 +163,9 @@ protected:
         return s.substr(first, last - first + 1);
     }
 
-    // Returns the path to the "Community Icons" pack folder inside Texture
-    // Loader's config directory, creating it (and the icons/ sub-directory)
-    // if it does not yet exist.
-    // Config layout:
-    //   <game>/geode/config/geode.texture-loader/Community Icons/icons/
     static bool ensureCommunityIconsDir(
         std::filesystem::path& outIconsDir, std::string& errOut)
     {
-        // Our config dir is <geode>/config/<our-id>/
-        // TL's config dir is the sibling <geode>/config/geode.texture-loader/
         auto tlConfigDir =
             Mod::get()->getConfigDir().parent_path() / "geode.texture-loader";
 
@@ -226,18 +180,11 @@ protected:
         return true;
     }
 
-    // Returns the file-name suffix for the given graphicsType string.
-    // "UHD" -> "UHD", "HD" -> "HD", anything else (incl. "") -> "".
     static std::string graphicsSuffix(std::string const& gt) {
         if (gt == "UHD" || gt == "HD") return gt;
         return "";
     }
 
-    // Validates that an icon name contains only safe characters.
-    // GD icon names follow the pattern "Type_Number" (e.g. "Cube_104",
-    // "Swing_3").  Restricting to [A-Za-z0-9_-] prevents path traversal
-    // attacks where a crafted name like "../../system/file" would escape the
-    // Community Icons/icons/ directory.
     static bool isValidIconName(std::string const& name) {
         if (name.empty() || name.size() > 64) return false;
         for (char c : name) {
@@ -247,8 +194,6 @@ protected:
         return true;
     }
 
-    // Returns true if url starts with "https://" (case-insensitive).
-    // Prevents local file:// or other non-HTTP URLs from being fetched.
     static bool isHttpsUrl(std::string const& url) {
         if (url.size() < 8) return false;
         std::string prefix = url.substr(0, 8);
@@ -256,8 +201,6 @@ protected:
             [](unsigned char c) { return std::tolower(c); });
         return prefix == "https://";
     }
-
-    // ── Apply button handler ──────────────────────────────────────────────────
 
     void onApply(CCObject*) {
         if (m_pack.imageUrl.empty()) {
@@ -273,14 +216,11 @@ protected:
             return;
         }
 
-        // Reject names that contain path separators or non-identifier characters
-        // to prevent path traversal (e.g. "../../etc/passwd").
         if (!isValidIconName(iconName)) {
             setStatus("Icon name may only contain letters, digits, _ and -.", true);
             return;
         }
 
-        // Only allow https:// URLs to prevent local file:// access.
         if (!isHttpsUrl(m_pack.imageUrl)) {
             setStatus("Pack has an invalid image URL.", true);
             return;
@@ -290,7 +230,6 @@ protected:
             return;
         }
 
-        // Resolve the Texture Loader icons directory once, before spawning tasks.
         std::filesystem::path iconsDir;
         std::string dirErr;
         if (!ensureCommunityIconsDir(iconsDir, dirErr)) {
@@ -306,7 +245,6 @@ protected:
         std::string plistUrl = m_pack.plistUrl;
         Ref<IconPackDetailPopup> selfRef(this);
 
-        // ── Download image ───────────────────────────────────────────────
         m_handles.push_back(geode::async::spawn(
             web::WebRequest().get(imageUrl),
             [selfRef, iconsDir, baseName, plistUrl]
@@ -322,7 +260,6 @@ protected:
                     return;
                 }
 
-                // Save image → Community Icons/icons/<baseName>.png
                 auto imgPath = iconsDir / (baseName + ".png");
                 {
                     std::ofstream ofs(imgPath, std::ios::binary | std::ios::trunc);
@@ -335,7 +272,6 @@ protected:
                         static_cast<std::streamsize>(imgBytes.size()));
                 }
 
-                // If no plist, we're done.
                 if (plistUrl.empty()) {
                     selfRef->setStatus(
                         ("Saved " + baseName + ".png to Community Icons/icons/").c_str(),
@@ -343,14 +279,12 @@ protected:
                     return;
                 }
 
-                // ── Download plist (if present) ──────────────────────────
                 selfRef->m_handles.push_back(geode::async::spawn(
                     web::WebRequest().get(plistUrl),
                     [selfRef, iconsDir, baseName]
                     (web::WebResponse plistResp) mutable {
                         if (!selfRef) return;
                         if (!plistResp.ok()) {
-                            // Image is already saved; report partial success.
                             selfRef->setStatus(
                                 "Image saved but plist download failed.", false);
                             return;
@@ -362,7 +296,6 @@ protected:
                             return;
                         }
 
-                        // Save plist → Community Icons/icons/<baseName>.plist
                         auto plistPath = iconsDir / (baseName + ".plist");
                         {
                             std::ofstream ofs(
