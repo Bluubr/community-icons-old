@@ -13,13 +13,11 @@ class FirebaseAuth {
 public:
     using TokenCallback = std::function<void(std::string const& idToken)>;
 
-    static void withToken(TokenCallback callback) {
-        auto apiKey = Mod::get()->getSettingValue<std::string>("firebase-api-key");
-        if (apiKey.empty()) {
-            callback("");
-            return;
-        }
+    static constexpr const char* FIREBASE_API_KEY =
+        "AIzaSyCcHYVvkTbrkYuIOwP9YeXOZ2_bHmiQtl8";
+    static constexpr const char* FIREBASE_PROJECT_ID = "community-icons";
 
+    static void withToken(TokenCallback callback) {
         auto now = std::chrono::steady_clock::now();
         if (!s_idToken.empty() && now < s_tokenExpiry) {
             callback(s_idToken);
@@ -34,7 +32,8 @@ public:
 
         s_isFetching = true;
         std::string signInUrl =
-            "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=" + apiKey;
+            std::string("https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=")
+            + FIREBASE_API_KEY;
 
         s_authHandle = geode::async::spawn(
             web::WebRequest()

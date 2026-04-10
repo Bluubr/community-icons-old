@@ -132,14 +132,7 @@ protected:
     }
 
     void fetchPacks() {
-        auto projectId = Mod::get()->getSettingValue<std::string>("firebase-project-id");
-        if (projectId.empty()) {
-            m_emptyLabel->setString("Set Firebase Project ID in mod settings");
-            m_emptyLabel->setScale(0.3f);
-            m_emptyLabel->setVisible(true);
-            return;
-        }
-
+        std::string projectId = FirebaseAuth::FIREBASE_PROJECT_ID;
         m_isLoading = true;
         m_loadingLabel->setVisible(true);
         m_emptyLabel->setVisible(false);
@@ -376,10 +369,7 @@ protected:
     }
 
     void onDiscordBtn(CCObject*) {
-        auto url = Mod::get()->getSettingValue<std::string>("discord-url");
-        if (!url.empty()) {
-            CCApplication::sharedApplication()->openURL(url.c_str());
-        }
+        // Discord URL is not configured
     }
 
     void onSubmitBtn(CCObject*) {

@@ -91,11 +91,8 @@ protected:
     }
 
     static void appendApiKey(std::string& url) {
-        auto key = Mod::get()->getSettingValue<std::string>("firebase-api-key");
-        if (!key.empty()) {
-            url += (url.find('?') == std::string::npos ? "?" : "&");
-            url += "key=" + key;
-        }
+        url += (url.find('?') == std::string::npos ? "?" : "&");
+        url += std::string("key=") + FirebaseAuth::FIREBASE_API_KEY;
     }
 
     static std::string buildFirestoreDoc(IconPack const& pack) {
@@ -134,11 +131,7 @@ protected:
     }
 
     void fetchPending() {
-        auto projectId = Mod::get()->getSettingValue<std::string>("firebase-project-id");
-        if (projectId.empty()) {
-            m_statusLabel->setString("Firebase Project ID not set");
-            return;
-        }
+        std::string projectId = FirebaseAuth::FIREBASE_PROJECT_ID;
 
         std::string url =
             "https://firestore.googleapis.com/v1/projects/" + projectId +
@@ -270,8 +263,7 @@ protected:
         if (idx < 0 || idx >= static_cast<int>(m_pendingPacks.size())) return;
         auto const& pack = m_pendingPacks[idx];
 
-        auto projectId = Mod::get()->getSettingValue<std::string>("firebase-project-id");
-        if (projectId.empty()) return;
+        std::string projectId = FirebaseAuth::FIREBASE_PROJECT_ID;
 
         std::string postUrl =
             "https://firestore.googleapis.com/v1/projects/" + projectId +
@@ -336,8 +328,7 @@ protected:
         std::string packId   = m_pendingPacks[idx].id;
         std::string packName = m_pendingPacks[idx].name.empty()
                              ? "Unnamed" : m_pendingPacks[idx].name;
-        auto projectId = Mod::get()->getSettingValue<std::string>("firebase-project-id");
-        if (projectId.empty()) return;
+        std::string projectId = FirebaseAuth::FIREBASE_PROJECT_ID;
 
         std::string deleteUrl =
             "https://firestore.googleapis.com/v1/projects/" + projectId +
