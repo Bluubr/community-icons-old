@@ -135,8 +135,7 @@ protected:
     }
 
     static void appendApiKey(std::string& url) {
-        url += (url.find('?') == std::string::npos ? "?" : "&");
-        url += std::string("key=") + FirebaseAuth::FIREBASE_API_KEY;
+        url += (url.find('?') == std::string::npos ? "?" : "&") + (std::string("key=") + FirebaseAuth::FIREBASE_API_KEY);
     }
 
     static bool isHttpsUrl(std::string const& url) {

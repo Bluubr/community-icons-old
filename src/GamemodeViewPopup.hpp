@@ -368,9 +368,7 @@ protected:
         IconPackDetailPopup::create(packs[idx])->show();
     }
 
-    void onDiscordBtn(CCObject*) {
-        // Discord URL is not configured
-    }
+    void onDiscordBtn(CCObject*) {}
 
     void onSubmitBtn(CCObject*) {
         SubmitPackPopup::create()->show();
