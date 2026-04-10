@@ -102,19 +102,16 @@ protected:
     }
 
     void checkModeratorStatus() {
-        auto projectId = Mod::get()->getSettingValue<std::string>("firebase-project-id");
-        if (projectId.empty()) return;
-
         int accountID = GJAccountManager::sharedState()->m_accountID;
         if (accountID <= 0) return;
 
         std::string url =
-            "https://firestore.googleapis.com/v1/projects/" + projectId +
-            "/databases/(default)/documents/moderators/" +
-            std::to_string(accountID);
-
-        auto apiKey = Mod::get()->getSettingValue<std::string>("firebase-api-key");
-        if (!apiKey.empty()) url += "?key=" + apiKey;
+            std::string("https://firestore.googleapis.com/v1/projects/")
+            + FirebaseAuth::FIREBASE_PROJECT_ID
+            + "/databases/(default)/documents/moderators/"
+            + std::to_string(accountID)
+            + "?key="
+            + FirebaseAuth::FIREBASE_API_KEY;
 
         Ref<DefaultIconsPopup> selfRef(this);
         m_modCheckHandle = geode::async::spawn(

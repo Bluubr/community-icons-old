@@ -135,9 +135,7 @@ protected:
     }
 
     static void appendApiKey(std::string& url) {
-        auto k = Mod::get()->getSettingValue<std::string>("firebase-api-key");
-        if (!k.empty())
-            url += (url.find('?') == std::string::npos ? "?" : "&") + ("key=" + k);
+        url += (url.find('?') == std::string::npos ? "?" : "&") + (std::string("key=") + FirebaseAuth::FIREBASE_API_KEY);
     }
 
     static bool isHttpsUrl(std::string const& url) {
@@ -305,11 +303,7 @@ protected:
             return;
         }
 
-        auto projectId = Mod::get()->getSettingValue<std::string>("firebase-project-id");
-        if (projectId.empty()) {
-            setStatus("Firebase Project ID is not configured.", true);
-            return;
-        }
+        std::string projectId = FirebaseAuth::FIREBASE_PROJECT_ID;
 
         auto* acc = GJAccountManager::sharedState();
         if (!acc || acc->m_accountID <= 0) {

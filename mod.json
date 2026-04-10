@@ -19,25 +19,5 @@
 			"workshop-icon.png",
 			"icon_mod_badge.png"
 		]
-	},
-	"settings": {
-		"firebase-project-id": {
-			"name": "Firebase Project ID",
-			"description": "The Firebase project ID used to fetch icon packs from Firestore (e.g. my-project-12345). Find this in the Firebase Console under Project Settings.",
-			"type": "string",
-			"default": "community-icons"
-		},
-		"firebase-api-key": {
-			"name": "Firebase Web API Key",
-			"description": "The Firebase Web API Key for write operations (accept/decline submissions). Find this in the Firebase Console under Project Settings > General > Web API Key.",
-			"type": "string",
-			"default": "AIzaSyCcHYVvkTbrkYuIOwP9YeXOZ2_bHmiQtl8"
-		},
-		"discord-url": {
-			"name": "Discord Invite URL",
-			"description": "The Discord invite link opened when clicking the 'Join the Discord' button in the icon pack browser.",
-			"type": "string",
-			"default": ""
-		}
 	}
 }
